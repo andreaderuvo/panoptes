@@ -71,3 +71,72 @@ def test_the_page_is_served_without_a_token():
     """The page itself carries no secrets; it is useless until it is given one."""
     client, _ = boarded()
     assert client.get("/").status_code == 200
+
+
+REGISTER = "register-0123456789abcdef0123"
+
+
+def announcing():
+    cfg = Config(token=BOARD, registration_token=REGISTER, forget_after=45.0)
+    app = create_app(cfg)
+    return TestClient(app), app
+
+
+OVERVIEW = {"name": "gpu2", "reach": "http://gpu2:8090", "uptime": 100.0,
+            "sessions": [{"name": "claude", "bell": "asking"}]}
+
+
+def test_a_machine_can_announce_itself_when_it_cannot_be_reached():
+    """The case this exists for: two boxes on one wire, one refusing everything inbound."""
+    client, app = announcing()
+    said = client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert said.status_code == 200
+
+    board = client.get(f"/api/board?token={BOARD}").json()["machines"]
+    assert [m["name"] for m in board] == ["gpu2"]
+    assert board[0]["ok"] and board[0]["announced"] and board[0]["url"] == "http://gpu2:8090"
+
+
+def test_announcing_and_looking_are_different_keys():
+    """The board's token must not be able to invent machines, and a machine's key must not
+    be able to read the board."""
+    client, _ = announcing()
+    assert client.post("/api/report", json=OVERVIEW,
+                       headers={"Authorization": f"Bearer {BOARD}"}).status_code in (200, 401)
+    assert client.get("/api/board", headers={"Authorization": f"Bearer {REGISTER}"}).status_code == 401
+    assert client.post("/api/report", json=OVERVIEW,
+                       headers={"Authorization": "Bearer nonsense"}).status_code == 401
+
+
+def test_a_board_that_was_not_told_to_listen_does_not():
+    client, _ = boarded()
+    assert client.post("/api/report", json=OVERVIEW,
+                       headers={"Authorization": f"Bearer {REGISTER}"}).status_code == 401
+
+
+def test_nonsense_is_not_believed():
+    client, _ = announcing()
+    weak = {"Authorization": f"Bearer {REGISTER}"}
+    assert client.post("/api/report", json={"hello": "there"}, headers=weak).status_code == 400
+    assert client.post("/api/report", json={"sessions": []}, headers=weak).status_code == 400
+
+
+def test_a_machine_that_stops_calling_in_is_not_believed_forever():
+    """No request fails when nobody is asking, so silence is the only signal there is."""
+    import time as clock
+
+    client, app = announcing()
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    app.state.told["gpu2"].at = clock.time() - 300
+    machine = client.get(f"/api/board?token={BOARD}").json()["machines"][0]
+    assert machine["ok"] is False and "called in" in machine["why"]
+
+
+def test_the_list_you_wrote_by_hand_wins():
+    """Otherwise anything holding the registration key can quietly replace a machine you
+    configured with one of its own."""
+    cfg = Config(token=BOARD, registration_token=REGISTER,
+                 machines=[Machine(name="gpu2", url="http://real:8090", token=WEAK)])
+    client = TestClient(create_app(cfg))
+    said = client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert said.status_code == 409

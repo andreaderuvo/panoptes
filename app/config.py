@@ -56,6 +56,13 @@ class Config:
     # that blocks because one box is down is a board nobody trusts.
     every: float = DEFAULT_EVERY
     timeout: float = DEFAULT_TIMEOUT
+    # A machine that cannot be reached from here can announce itself instead, with this
+    # key. Empty means nobody may: a board that accepts anything it is told is a board
+    # anyone can fill with machines that do not exist.
+    registration_token: str = ""
+    # How long an announced machine stays believed after it goes quiet. It says nothing
+    # about how often it speaks, so this is a plain grace period rather than a multiple.
+    forget_after: float = 45.0
 
     @classmethod
     def from_dict(cls, raw: dict) -> Config:
@@ -77,6 +84,8 @@ class Config:
             listen=str(raw.get("listen", DEFAULT_LISTEN)),
             every=float(raw.get("every", DEFAULT_EVERY)),
             timeout=float(raw.get("timeout", DEFAULT_TIMEOUT)),
+            registration_token=str(raw.get("registration_token") or ""),
+            forget_after=float(raw.get("forget_after", 45.0)),
         )
 
     def validate(self) -> None:
@@ -95,6 +104,11 @@ class Config:
                 # Then the board's own key is a machine's key, and a mistake here undoes
                 # the reason for having two kinds.
                 raise ConfigError(f"the token for {m.name!r} is the same as this board's token")
+        if self.registration_token:
+            if len(self.registration_token) < 16:
+                raise ConfigError("`registration_token` is shorter than 16 characters")
+            if self.registration_token == self.token:
+                raise ConfigError("`registration_token` is the same as this board's token")
         if self.every < 1:
             raise ConfigError("`every` under a second would hammer the machines for nothing")
 
@@ -104,6 +118,8 @@ class Config:
             "token": self.token,
             "every": self.every,
             "timeout": self.timeout,
+            "registration_token": self.registration_token,
+            "forget_after": self.forget_after,
             "machines": [{"name": m.name, "url": m.url, "token": m.token} for m in self.machines],
         }
 
