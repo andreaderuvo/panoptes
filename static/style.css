@@ -129,10 +129,11 @@ main {
      long name, and which tile that happened to depended on the name. */
   flex-wrap: nowrap;
 }
-/* The readings, which may take two lines if the name is long. */
+/* The readings. Pushed right by their own margin rather than by a spacer, and never
+   squeezed below what they need: they wrap only when the room has genuinely run out. */
 .readouts {
-  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
-  justify-content: flex-end; min-width: 0;
+  display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
+  justify-content: flex-end; margin-left: auto; flex: 0 0 auto; min-width: 0;
 }
 /* What you can press. Never breaks, never shrinks. */
 .acts { flex: none; display: inline-flex; align-items: center; gap: .1rem; }
@@ -263,14 +264,28 @@ main {
 .sheetfoot .ghost:first-child { color: var(--text); }
 .name { color: var(--bright); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .name:hover { color: var(--accent); }
+/* A reading, and how loudly it is said.
+ *
+ *  All three used to be identical bordered pills, so `load 1.21` shouted as loudly as a disk
+ *  at 96% and the red one had nothing to stand out against. A number that is fine is now just
+ *  dim text; the box appears when there is something to say. It also buys about 20px a chip,
+ *  which is what keeps the header on one line.
+ */
 .state {
   flex: none; font-size: .72rem; color: var(--dim); line-height: 1.45;
-  border: 1px solid var(--line); border-radius: .3rem; padding: .05rem .35rem;
+  border: 1px solid transparent; border-radius: .3rem; padding: .05rem .15rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.state.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
-.state.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.state.warn, .state.bad { padding: .05rem .35rem; }
+.state.warn {
+  color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+.state.bad {
+  color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
 
 /* Your line, in your words, above the machine's own. Two lines at most: a tile is a glance,
    and a paragraph here would push the sessions out of one. */

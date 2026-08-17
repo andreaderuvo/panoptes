@@ -643,7 +643,6 @@ function card(machine) {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
     }),
-    el('span', { className: 'grow' }),
   ]);
 
   /* The readings wrap; the buttons do not.
@@ -652,6 +651,11 @@ function card(machine) {
    *  line of their own — and which tile that happened to depended on the name, so no two
    *  agreed. They live in a box that cannot break instead, and only the readings inside their
    *  own box are allowed to.
+   *
+   *  There used to be a `.grow` spacer between the name and these, and it was the whole
+   *  problem: a spacer with `flex: 1` takes every pixel of slack, so the readings were handed
+   *  less than they needed and wrapped while 17px sat unused beside them. They are pushed
+   *  right with `margin-left: auto` now, which asks for no space of its own.
    */
   const readouts = el('span', { className: 'readouts' });
   head.append(readouts);
@@ -670,7 +674,8 @@ function card(machine) {
       // number — which is the only part anyone reads. The tail of a path is the part that
       // identifies it, so a long one keeps its tail and says the whole thing on hover.
       const path = machine.disk.path;
-      const short = path.length > 14 ? `…/${path.split('/').filter(Boolean).pop() || path}` : path;
+      const tail = path.split('/').filter(Boolean).pop() || path;
+      const short = path.length > 12 ? `…/${tail.length > 11 ? `${tail.slice(0, 10)}…` : tail}` : path;
       readouts.append(el('span', {
         className: `state${machine.disk.level === 'critical' ? ' bad' : machine.disk.level === 'high' ? ' warn' : ''}`,
         textContent: `${short} ${Math.round(machine.disk.pct)}%`,
