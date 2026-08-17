@@ -105,6 +105,9 @@ class Config:
     tls_key: Path | None = None
     # Where the record of what was done here is appended, beside the config.
     journal_store: Path | None = None
+    # Where machines that announced themselves are written down, so a restart does not lose
+    # them. Beside the config, same reasoning as the rest.
+    remembered_store: Path | None = None
 
     def tls(self) -> tuple[Path, Path] | None:
         if self.tls_cert and self.tls_key:

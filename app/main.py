@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 
 import httpx
 
-from . import journal, languages
+from . import journal, languages, remembered
 from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
 
@@ -178,14 +178,23 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.seen: dict[str, Seen] = {}
     # Machines that announce themselves, kept apart from the ones this board polls: the
     # two are believed for different reasons and go stale differently.
-    app.state.told: dict[str, Seen] = {}
+    # Read back from disk, so a machine that was stopped stays on the board saying so instead
+    # of vanishing — which is indistinguishable from never having existed.
+    #
+    # `None` when there is no config path, and then nothing is written anywhere. A board built
+    # without one is a test or something embedding this, and neither should quietly start
+    # writing into the real `~/.config/panoptes` — which is exactly what happened, and which
+    # made one test's machines turn up in another's board.
+    app.state.remembered = cfg.remembered_store or (
+        remembered.default_store(cfg.config_path) if cfg.config_path else None)
+    app.state.told: dict[str, Seen] = remembered.restore(app.state.remembered, Seen)
     app.state.swept = 0.0
     # Instructions for machines this board cannot reach, waiting for them to call in. In
     # memory on purpose: a board that restarts should forget what it was about to say rather
     # than replay it at a machine that has moved on.
     app.state.queued: dict[str, list[dict]] = {}
-    app.state.journal = cfg.journal_store or (languages.lang_dir(
-        cfg.config_path or default_path()).parent / "journal.jsonl")
+    app.state.journal = cfg.journal_store or (
+        journal.default_store(cfg.config_path) if cfg.config_path else None)
     # Replaced by the lifespan's own, and present before it so a TestClient — which does run
     # the lifespan — and a bare create_app both work.
     app.state.http = httpx.AsyncClient(follow_redirects=False)
@@ -276,6 +285,7 @@ def create_app(cfg: Config) -> FastAPI:
         # over once: if it does not happen, the person presses the button again — better than
         # a board that keeps insisting at a machine that has already refused.
         waiting = app.state.queued.pop(name, [])
+        remembered.save(app.state.remembered, app.state.told)
         return {"heard": name, "do": waiting}
 
     @app.post("/api/do/{name}/{what}/{action}", summary="Start or stop something on a machine")
@@ -326,6 +336,28 @@ def create_app(cfg: Config) -> FastAPI:
             raise HTTPException(status_code=answer.status_code,
                                 detail=f"{name}: {answer.text[:200]}")
         return {"machine": name, **answer.json()}
+
+    @app.delete("/api/machines/{name}", summary="Forget a machine that announced itself")
+    async def forget(name: str) -> dict:
+        """Take one off the board for good.
+
+        Needed because announced machines are now remembered: a stopped one stays visible and
+        red, which is the point — and a decommissioned one would sit there red for ever. The
+        board cannot tell "off for ten minutes" from "gone", and should not guess, so removing
+        it is something a person does.
+
+        A machine written in the config cannot be forgotten this way; delete it from the config,
+        which is where it came from.
+        """
+        if any(m.name == name for m in cfg.machines):
+            raise HTTPException(status_code=409,
+                                detail="that machine is in the config — remove it there")
+        if name not in app.state.told:
+            raise HTTPException(status_code=404, detail=f"no machine called {name}")
+        app.state.told.pop(name)
+        app.state.queued.pop(name, None)
+        remembered.save(app.state.remembered, app.state.told)
+        return {"forgot": name}
 
     @app.get("/api/journal", summary="What was done on this board, and what was refused")
     async def read_journal(limit: int = 200) -> dict:
@@ -434,6 +466,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.listen:
         cfg.listen = args.listen
     cfg.journal_store = journal.default_store(cfg.config_path or args.config)
+    cfg.remembered_store = remembered.default_store(cfg.config_path or args.config)
 
     host, _, port = cfg.listen.rpartition(":")
     print(f"\n  panoptes {VERSION} · {len(cfg.machines)} machine(s)"

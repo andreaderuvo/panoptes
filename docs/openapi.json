@@ -1,0 +1,338 @@
+{
+ "components": {
+  "schemas": {
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "title": "Panoptes",
+  "version": "0.0.1"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/board": {
+   "get": {
+    "description": "What the page draws. Note what is *not* in here: no tokens. The browser is told\nwhere each machine lives, never how to get in \u2014 it already knows that, per origin,\nor it does not and you go and let it know once.",
+    "operationId": "board_api_board_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Board Api Board Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Every machine, as of the last sweep"
+   }
+  },
+  "/api/do/{name}/{what}/{action}": {
+   "post": {
+    "description": "Passed straight through to that machine, with the weak key this board holds.\n\nThe board adds nothing and invents nothing: `what` has to be a name that machine\npublished, and if it is not, that machine says so. This exists rather than letting\nthe page call the machine directly because the page has no key for it \u2014 which is the\nwhole design, and the reason clicking a tile opens a new origin instead.\n\nFor a machine that announces itself, the board cannot reach it at all. Then the\nrequest is written down and handed over the next time it calls in, and the answer\nhere says `queued` rather than pretending it happened.",
+    "operationId": "do_one_api_do__name___what___action__post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "what",
+      "required": true,
+      "schema": {
+       "title": "What",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "action",
+      "required": true,
+      "schema": {
+       "title": "Action",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Do One Api Do  Name   What   Action  Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start or stop something on a machine"
+   }
+  },
+  "/api/health": {
+   "get": {
+    "operationId": "health_api_health_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Health Api Health Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Is the board itself up"
+   }
+  },
+  "/api/journal": {
+   "get": {
+    "description": "Most recent first. Whoever can read the board can read this: unlike Argus there are\nno per-device tokens here, so there is no weaker key to keep it from.",
+    "operationId": "read_journal_api_journal_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Read Journal Api Journal Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What was done on this board, and what was refused"
+   }
+  },
+  "/api/language/{code}": {
+   "get": {
+    "operationId": "one_language_api_language__code__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "required": true,
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response One Language Api Language  Code  Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "One language catalogue"
+   }
+  },
+  "/api/languages": {
+   "get": {
+    "description": "Whatever is in `static/lang/` plus whatever is in `<config>/lang/`, so adding a\nlanguage is dropping a JSON file in and nothing else.",
+    "operationId": "list_languages_api_languages_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response List Languages Api Languages Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The interface languages available"
+   }
+  },
+  "/api/machines/{name}": {
+   "delete": {
+    "description": "Take one off the board for good.\n\nNeeded because announced machines are now remembered: a stopped one stays visible and\nred, which is the point \u2014 and a decommissioned one would sit there red for ever. The\nboard cannot tell \"off for ten minutes\" from \"gone\", and should not guess, so removing\nit is something a person does.\n\nA machine written in the config cannot be forgotten this way; delete it from the config,\nwhich is where it came from.",
+    "operationId": "forget_api_machines__name__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Forget Api Machines  Name  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Forget a machine that announced itself"
+   }
+  },
+  "/api/report": {
+   "post": {
+    "description": "For machines this board cannot reach.\n\nThe usual arrangement is the other way round and it is the better one where it\nworks: the board polls, and a request that fails *is* the signal that a machine is\ndown. It stops working the moment the network only goes one way \u2014 two boxes on one\nwire, one refusing everything inbound \u2014 and then the only thing that can work is\nthe machine opening the connection itself, in the direction that already does.\n\nWhat arrives is what that machine's own /api/overview would have said, plus the\nname it goes by and where a browser can reach it. Nothing here is executed and\nnothing is stored on disk.",
+    "operationId": "report_api_report_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Report Api Report Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "A machine announcing what it is doing"
+   }
+  }
+ }
+}

@@ -359,6 +359,29 @@ async function ask(path) {
  *  Only shown when the machine offers it: `may_stop_argus` on that machine's watcher entry.
  */
 
+/** Forgetting asks too, and says the thing people get wrong about it: it does not stop
+ *  anything. The machine carries on; the board simply stops listing it, until it calls in
+ *  again — which it will, if it is still running and still configured to. */
+function confirmForget(name) {
+  return new Promise((resolve) => {
+    const sheet = el('dialog', { className: 'sheet' });
+    const finish = (answer) => { resolve(answer); sheet.close(); };
+    sheet.append(
+      el('h2', { textContent: t('Take {name} off the board?', { name }) }),
+      el('p', { className: 'hint', textContent: t('This does not stop it. If {name} is still running and still announcing itself, it will reappear on its next call-in — this is for machines that are gone.', { name }) }),
+      el('div', { className: 'sheetfoot' }, [
+        el('button', { className: 'ghost', type: 'button', textContent: t('Cancel'), onclick: () => finish(false) }),
+        el('button', { className: 'ghost danger', type: 'button', textContent: t('Forget'), onclick: () => finish(true) }),
+      ]),
+    );
+    document.body.append(sheet);
+    sheet.addEventListener('close', () => sheet.remove());
+    sheet.addEventListener('cancel', () => resolve(false));
+    sheet.showModal();
+    sheet.querySelector('.sheetfoot .ghost')?.focus();
+  });
+}
+
 /** The second ask. A modal, because this is the one action on the board that is one-way. */
 function confirmStop(name) {
   return new Promise((resolve) => {
@@ -610,6 +633,40 @@ function machineSheet(machine, done) {
    *  two different conversations, and the second one never ends. The README says where the
    *  line goes.
    */
+  /* Taking a machine off the board for good.
+   *
+   *  Only for one that announced itself: a configured machine would come straight back on the
+   *  next sweep and the button would look broken, so it is not offered — the config is where
+   *  it came from and the config is where it goes.
+   *
+   *  It exists because the board remembers announced machines now. That is what makes a
+   *  stopped one stay visible and red instead of vanishing, and the price is that a
+   *  decommissioned one would sit there for ever. The board cannot tell "off for ten minutes"
+   *  from "gone", so it does not guess.
+   */
+  const forget = machine.announced ? el('div', { className: 'offer' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'dim', textContent: t('Take it off the board') }),
+      el('span', { className: 'meta', textContent: t('it announced itself; forgetting is not stopping it') }),
+    ]),
+    el('button', {
+      className: 'ghost danger', type: 'button', textContent: t('Forget'),
+      onclick: async () => {
+        if (!await confirmForget(name)) return;
+        try {
+          const r = await fetch(`/api/machines/${encodeURIComponent(name)}`, {
+            method: 'DELETE', headers: { Authorization: `Bearer ${token}` },
+          });
+          const said = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(said.detail || `${r.status}`);
+          toast(t('{name} is off the board', { name }));
+        } catch (e) { toast(e.message, true); }
+        close();
+        done();
+      },
+    }),
+  ]) : null;
+
   put(sheet,
     el('h2', { textContent: name }),
     offers.length ? el('h3', { textContent: t('Start and stop') }) : null,
@@ -618,6 +675,8 @@ function machineSheet(machine, done) {
     swatches,
     el('h3', { textContent: t('Tint strength — every tile') }),
     strengths,
+    forget ? el('h3', { textContent: t('This machine') }) : null,
+    forget,
     el('div', { className: 'sheetfoot' }, [
       el('button', {
         className: 'ghost', type: 'button', textContent: t('Automatic'),

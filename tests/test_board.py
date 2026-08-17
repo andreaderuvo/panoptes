@@ -388,3 +388,77 @@ def test_the_journal_needs_the_board_token(tmp_path):
     assert client.get("/api/journal").status_code == 401
     assert client.get(f"/api/journal?token={REGISTER}").status_code == 401
     assert client.get(f"/api/journal?token={BOARD}").status_code == 200
+
+
+# ------------------------------------------------- machines that announced themselves, kept
+
+def with_memory(tmp_path, **extra):
+    cfg = Config(token=BOARD, registration_token=REGISTER, **extra)
+    cfg.remembered_store = tmp_path / "announced.json"
+    app = create_app(cfg)
+    app.state.remembered = cfg.remembered_store
+    return TestClient(app), cfg
+
+
+def test_a_machine_that_announced_itself_survives_a_restart(tmp_path):
+    """It used to live only in memory, so restarting the board did not turn a stopped machine
+    red — it made the tile vanish. For "is it alive", that is the worst answer there is: gone
+    and never-existed look the same."""
+    client, cfg = with_memory(tmp_path)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert cfg.remembered_store.exists()
+
+    again = create_app(cfg)
+    again.state.remembered = cfg.remembered_store
+    board = TestClient(again).get(f"/api/board?token={BOARD}").json()["machines"]
+    assert [m["name"] for m in board] == ["gpu2"]
+    # Believed to be *there*, not believed to be *up*: it has not called in since the restart.
+    assert board[0]["ok"] is False and board[0]["reason"] == "silent"
+    assert board[0]["url"] == "http://gpu2:8090"
+    assert board[0]["sessions"]          # and what it was doing when it went
+
+
+def test_the_remembered_file_holds_no_key(tmp_path):
+    client, cfg = with_memory(tmp_path)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    on_disk = cfg.remembered_store.read_text(encoding="utf-8")
+    assert REGISTER not in on_disk and BOARD not in on_disk
+    assert cfg.remembered_store.stat().st_mode & 0o077 == 0
+
+
+def test_a_machine_can_be_forgotten_on_purpose(tmp_path):
+    """The cost of remembering: a decommissioned machine would sit there red for ever. The
+    board cannot tell "off for ten minutes" from "gone", so removing one is a person's job."""
+    client, cfg = with_memory(tmp_path)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert client.delete(f"/api/machines/gpu2?token={BOARD}").json() == {"forgot": "gpu2"}
+    assert client.get(f"/api/board?token={BOARD}").json()["machines"] == []
+
+    again = create_app(cfg)
+    again.state.remembered = cfg.remembered_store
+    assert TestClient(again).get(f"/api/board?token={BOARD}").json()["machines"] == []
+
+
+def test_a_configured_machine_cannot_be_forgotten_from_the_board(tmp_path):
+    """It would come straight back on the next sweep and the button would look broken."""
+    client, _ = with_memory(tmp_path, machines=[
+        Machine(name="hetzner", url="http://hetzner:8090", token=WEAK)])
+    assert client.delete(f"/api/machines/hetzner?token={BOARD}").status_code == 409
+
+
+def test_forgetting_needs_the_board_token(tmp_path):
+    client, _ = with_memory(tmp_path)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert client.delete("/api/machines/gpu2").status_code == 401
+    assert client.delete(f"/api/machines/gpu2?token={REGISTER}").status_code == 401
+
+
+def test_a_board_with_no_config_path_writes_nothing():
+    """A board built without one is a test, or something embedding this. Neither should quietly
+    write into the real ~/.config/panoptes — which is what happened, and which made one test's
+    machines turn up in another test's board."""
+    app = create_app(Config(token=BOARD, registration_token=REGISTER))
+    assert app.state.remembered is None and app.state.journal is None
+    client = TestClient(app)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert client.get(f"/api/board?token={BOARD}").json()["machines"][0]["name"] == "gpu2"

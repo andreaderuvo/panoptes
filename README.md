@@ -215,6 +215,22 @@ It saves as you type, in the place the note will appear, and the board stops ref
 you write — otherwise a sweep four seconds later would take the box away with the cursor still
 in it.
 
+## The API
+
+Everything the page does, it does over HTTP, and the description is generated from the routes
+themselves: [`docs/openapi.json`](docs/openapi.json). A test fails if it drifts, so it cannot
+quietly start describing a board that does not exist.
+
+| | |
+|---|---|
+| `GET /api/board` | every machine, as of the last sweep — and never a machine's token |
+| `POST /api/report` | a machine announcing itself; answers with anything queued for it |
+| `POST /api/do/{machine}/{what}/{action}` | start or stop something, or `argus` itself |
+| `DELETE /api/machines/{name}` | take an announced machine off the board for good |
+| `GET /api/journal` | what was done here, and what was refused |
+| `GET /api/languages`, `GET /api/language/{code}` | the catalogues |
+| `GET /api/health` | is the board itself up |
+
 ## Translating it
 
 Four languages ship with the board — English, Italian, French, Spanish — and the globe in the
