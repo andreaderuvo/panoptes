@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from app.config import Config, Machine
+from app.config import Config, ConfigError, Machine
 from app.main import create_app
 from app.watch import Seen
 
@@ -155,3 +155,34 @@ def test_the_link_is_not_always_the_address_the_board_asks():
     plain = Config(token=BOARD, machines=[Machine(name="there", url="http://box:8090", token=WEAK)])
     other = TestClient(create_app(plain))
     assert other.get(f"/api/board?token={BOARD}").json()["machines"][0]["url"] == "http://box:8090"
+
+
+def test_a_colour_written_in_the_config_reaches_the_page():
+    """The hash is readable but it is not always right: two machines can land on the same
+    step, and then the board is prettier than it is useful. A colour set here is the same on
+    every device that opens the board — a reader can still override it in their own browser,
+    which the server has no business knowing about."""
+    cfg = Config(token=BOARD, machines=[
+        Machine(name="hetzner", url="http://hetzner:8090", token=WEAK, colour="5"),
+        Machine(name="plain", url="http://plain:8090", token=WEAK + "1"),
+    ])
+    client = TestClient(create_app(cfg))
+    board = {m["name"]: m for m in client.get(f"/api/board?token={BOARD}").json()["machines"]}
+    assert board["hetzner"]["colour"] == "5"
+    # Unset, the board says nothing and the page falls back to the name.
+    assert "colour" not in board["plain"]
+
+
+def test_a_colour_that_is_not_one_is_refused_at_startup():
+    """A typo that silently paints nothing is a typo you hunt for."""
+    import pytest
+
+    for wrong in ("verde", "#12345", "rgb(1,2,3)"):
+        cfg = Config(token=BOARD, machines=[
+            Machine(name="a", url="http://a:8090", token=WEAK, colour=wrong)])
+        with pytest.raises(ConfigError):
+            cfg.validate()
+
+    for right in ("0", "7", "#5fc9a3"):
+        Config(token=BOARD, machines=[
+            Machine(name="a", url="http://a:8090", token=WEAK, colour=right)]).validate()

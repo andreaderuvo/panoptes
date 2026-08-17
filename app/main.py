@@ -106,9 +106,13 @@ def create_app(cfg: Config) -> FastAPI:
         """What the page draws. Note what is *not* in here: no tokens. The browser is told
         where each machine lives, never how to get in — it already knows that, per origin,
         or it does not and you go and let it know once."""
+        painted = {m.name: m.colour for m in cfg.machines if m.colour}
         machines = [app.state.seen[m.name].as_dict() if m.name in app.state.seen
                     else {"name": m.name, "url": m.link, "ok": False, "why": "not asked yet"}
                     for m in cfg.machines]
+        for said in machines:
+            if said["name"] in painted:
+                said["colour"] = painted[said["name"]]
         # An announced machine is believed until it has been quiet too long. There is no
         # request to fail here, so silence is the only signal there is.
         now = time.time()

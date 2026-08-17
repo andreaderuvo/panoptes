@@ -65,10 +65,73 @@ const MACHINE_COLOURS = [
   '#6fc7d6', '#7aa2d6', '#b98fd6', '#d66fa8',
 ];
 
-function colourFor(name) {
+/* Three answers, most personal first.
+ *
+ *  A colour you picked here beats one written in the config, because the config is what
+ *  everyone sees and this is your browser. The config beats the hash, because someone
+ *  bothered to write it down. And the hash is there so that a board nobody has configured
+ *  is still readable — which is the state every board starts in.
+ */
+const PICKS = 'panoptes.colours';
+let picks = (() => { try { return JSON.parse(localStorage.getItem(PICKS)) || {}; } catch { return {}; } })();
+const savePicks = () => localStorage.setItem(PICKS, JSON.stringify(picks));
+
+function fromPalette(said) {
+  if (said == null || said === '') return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(said)) return said;
+  const n = Number(said);
+  return Number.isInteger(n) ? MACHINE_COLOURS[((n % MACHINE_COLOURS.length) + MACHINE_COLOURS.length) % MACHINE_COLOURS.length] : null;
+}
+
+function colourFor(machine) {
+  const name = typeof machine === 'string' ? machine : machine.name;
+  const mine = fromPalette(picks[name]);
+  if (mine) return mine;
+  const said = typeof machine === 'object' ? fromPalette(machine.colour) : null;
+  if (said) return said;
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return MACHINE_COLOURS[h % MACHINE_COLOURS.length];
+}
+
+/** Eight swatches and a way back to the automatic one.
+ *
+ *  Argus's own picker, down to the palette and the grid, because a machine here and its
+ *  sessions there are the same thing seen from different distances and should not offer two
+ *  different ways to recolour it.
+ */
+function pickColour(name, done) {
+  const body = el('div', { className: 'swatches' });
+  const sheet = el('dialog', { className: 'sheet' });
+  const close = () => sheet.close();
+
+  MACHINE_COLOURS.forEach((c, i) => {
+    const b = el('button', {
+      className: `swatch${String(picks[name]) === String(i) ? ' on' : ''}`,
+      type: 'button', title: `colour ${i + 1}`, 'aria-label': `colour ${i + 1}`,
+    });
+    b.style.background = c;
+    b.onclick = () => { picks = { ...picks, [name]: i }; savePicks(); close(); done(); };
+    body.append(b);
+  });
+
+  sheet.append(
+    el('h2', { textContent: `Colour for ${name}` }),
+    body,
+    el('div', { className: 'sheetfoot' }, [
+      el('button', {
+        className: 'ghost', type: 'button', textContent: 'Automatic',
+        title: 'back to the colour this name gives',
+        onclick: () => { const { [name]: _drop, ...rest } = picks; picks = rest; savePicks(); close(); done(); },
+      }),
+      el('button', { className: 'ghost', type: 'button', textContent: 'Close', onclick: close }),
+    ]),
+  );
+  document.body.append(sheet);
+  sheet.addEventListener('close', () => sheet.remove());
+  // The tile underneath is a link; nothing that happens in here is a click on it.
+  sheet.addEventListener('click', (e) => e.stopPropagation());
+  sheet.showModal();
 }
 
 const svgEl = (tag, props = {}, kids = []) => {
@@ -161,7 +224,11 @@ function sessionChip(session, url) {
 
 function card(machine) {
   const head = el('div', { className: 'cardhead' }, [
-    el('span', { className: 'mdot', 'aria-hidden': 'true' }),
+    el('button', {
+      className: 'mdot', type: 'button',
+      title: `colour for ${machine.name}`, 'aria-label': `colour for ${machine.name}`,
+      onclick: (e) => { e.stopPropagation(); pickColour(machine.name, draw); },
+    }),
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
@@ -256,7 +323,7 @@ function card(machine) {
   }, [head, body, foot]);
   // Down the left edge, which is also where "this one wants you" is said — so a machine
   // asking for you overrides its own colour rather than competing with it.
-  card.style.setProperty('--mc', colourFor(machine.name));
+  card.style.setProperty('--mc', colourFor(machine));
 
   /* The whole tile opens the machine.
    *

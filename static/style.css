@@ -125,10 +125,42 @@ main {
 }
 /* The machine's colour said once, at full strength, where the eye already is. The wash
    alone is too faint to tell two machines apart at a glance; this is what does it. */
+ /* The dot is also the way to change it. A hit area of .55rem is not a target anyone can
+    hit, so the button is tap-sized and the dot is drawn inside it — the visible mark stays
+    small, which is the point of it. */
 .mdot {
-  flex: none; width: .55rem; height: .55rem; border-radius: 50%;
-  background: var(--mc, var(--dim));
+  flex: none; width: 1.5rem; height: 1.5rem; margin: -.3rem -.35rem -.3rem -.25rem;
+  padding: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer;
+  display: inline-grid; place-items: center;
 }
+.mdot::before {
+  content: ''; width: .55rem; height: .55rem; border-radius: 50%;
+  background: var(--mc, var(--dim));
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--mc, var(--dim)) 45%, transparent);
+  transition: box-shadow .12s ease;
+}
+.mdot:hover::before { box-shadow: 0 0 0 4px color-mix(in srgb, var(--mc, var(--dim)) 30%, transparent); }
+.mdot:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* Argus's picker, the same palette in the same four-by-two grid. */
+.sheet {
+  border: 1px solid var(--line); border-radius: .7rem;
+  background: var(--panel); color: var(--text); padding: 1rem;
+  min-width: min(92vw, 20rem);
+}
+.sheet::backdrop { background: rgb(0 0 0 / .5); }
+.sheet h2 { margin: 0 0 .8rem; font-size: .95rem; color: var(--bright); font-weight: 600; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: .55rem; }
+.swatch { height: 46px; border-radius: .5rem; border: 1px solid var(--line); cursor: pointer; }
+.swatch.on { border-color: var(--bright); box-shadow: inset 0 0 0 2px var(--panel); }
+.swatch:active { transform: scale(.95); }
+.sheetfoot { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+.sheetfoot .ghost {
+  height: 34px; padding: 0 .8rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: none; color: var(--text); font: inherit; cursor: pointer;
+}
+.sheetfoot .ghost:hover { border-color: var(--accent); color: var(--bright); }
 .name { color: var(--bright); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .name:hover { color: var(--accent); }
 .state {

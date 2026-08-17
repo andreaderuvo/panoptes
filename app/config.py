@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,6 +13,11 @@ import yaml
 DEFAULT_LISTEN = "127.0.0.1:8070"
 DEFAULT_EVERY = 5.0
 DEFAULT_TIMEOUT = 3.0
+
+
+# A colour written by hand, checked before it reaches a stylesheet. Anything else is a
+# typo, and a typo that silently paints nothing is a typo you hunt for.
+PAINT = re.compile(r"#[0-9a-fA-F]{6}")
 
 
 class ConfigError(Exception):
@@ -41,6 +47,12 @@ class Machine:
     name: str
     url: str
     token: str
+    # A colour for this machine's tile, for when the one its name happens to hash to is not
+    # the one you want. Either an index into the board's palette (0-7) or a literal
+    # `#rrggbb`. Set here it is the same on every device that opens the board; a reader can
+    # still override it for themselves in their own browser, which is where a preference
+    # about how something looks belongs.
+    colour: str = ""
     # Where a *browser* should go, which is not always where this board asks.
     #
     # A board running on the same machine as an Argus polls it over loopback, because that
@@ -89,7 +101,8 @@ class Config:
             if not (name and url and token):
                 raise ConfigError("a machine needs a name, a url and a token")
             machines.append(Machine(name=name, url=url, token=token,
-                                    reach=str(entry.get("reach") or "").strip()))
+                                    reach=str(entry.get("reach") or "").strip(),
+                                    colour=str(entry.get("colour") or entry.get("color") or "").strip()))
         return cls(
             token=str(raw.get("token", "")),
             machines=machines,
@@ -112,6 +125,10 @@ class Config:
             seen.add(m.name)
             if not m.url.startswith(("http://", "https://")):
                 raise ConfigError(f"the url for {m.name!r} must start with http:// or https://")
+            if m.colour and not (m.colour.isdigit() or PAINT.fullmatch(m.colour)):
+                raise ConfigError(
+                    f"the colour for {m.name!r} must be a palette index (0-7) or a #rrggbb value"
+                )
             if m.token == self.token:
                 # Then the board's own key is a machine's key, and a mistake here undoes
                 # the reason for having two kinds.
@@ -133,7 +150,9 @@ class Config:
             "registration_token": self.registration_token,
             "forget_after": self.forget_after,
             "machines": [
-                {"name": m.name, "url": m.url, "token": m.token, **({"reach": m.reach} if m.reach else {})}
+                {"name": m.name, "url": m.url, "token": m.token,
+                 **({"reach": m.reach} if m.reach else {}),
+                 **({"colour": m.colour} if m.colour else {})}
                 for m in self.machines
             ],
         }
