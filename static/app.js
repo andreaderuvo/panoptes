@@ -9,15 +9,41 @@ const board = document.getElementById('board');
 const swept = document.getElementById('swept');
 const count = document.getElementById('count');
 
-/* The board's own token comes in the address, is put away, and is taken out of the bar —
- * so it is not sitting in the history of every phone that has ever opened this. */
+/* The board's own token comes in the address, is put away, and is taken out of the bar.
+ *
+ *  Two forms, and the difference is where they travel. `#token=` is a **fragment**: the
+ *  browser never sends it to the server, so it cannot land in an access log, in the log of a
+ *  proxy on the way, or in a `Referer`. `?token=` is in the request line and therefore in all
+ *  three. The banner prints the hash form; the query form is still accepted, because links
+ *  and QR codes already saved on people's phones have to keep working.
+ *
+ *  Neither saves it from the browser's own history, which is why it is scrubbed from the bar
+ *  either way.
+ */
 const KEY = 'panoptes.token';
-const fromBar = new URLSearchParams(location.search).get('token');
-if (fromBar) {
-  localStorage.setItem(KEY, fromBar);
-  history.replaceState(null, '', location.pathname);
+
+function takeTokenFromAddress() {
+  const hash = location.hash.replace(/^#/, '');
+  const fromHash = new URLSearchParams(hash).get('token');
+  const given = fromHash || new URLSearchParams(location.search).get('token');
+  if (!given) return false;
+  localStorage.setItem(KEY, given);
+  const rest = fromHash
+    ? hash.split('&').filter((bit) => !bit.startsWith('token=')).join('&')
+    : hash;
+  history.replaceState(null, '', location.pathname + (rest ? `#${rest}` : ''));
+  return true;
 }
+
+takeTokenFromAddress();
 let token = localStorage.getItem(KEY) || '';
+
+/* And again if one arrives later. Changing only the fragment is a same-document navigation:
+ * the browser does not reload, so a `#token=` link pasted into a tab that is already open
+ * would otherwise do nothing at all — where `?token=` forces a reload and works. */
+window.addEventListener('hashchange', () => {
+  if (takeTokenFromAddress()) location.reload();
+});
 
 /* ------------------------------------------------------------------- words
  *

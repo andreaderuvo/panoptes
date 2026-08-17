@@ -350,7 +350,9 @@ def main(argv: list[str] | None = None) -> int:
     scheme = "https" if cfg.tls() else "http"
     where = addresses() if host in ("", "0.0.0.0", "::") else [host]
     for address in where:
-        url = f"{scheme}://{address}:{port}/?token={cfg.token}"
+        # In the fragment: the browser never sends it to the server, so it cannot end up in
+        # an access log or in the log of any proxy between here and the reader.
+        url = f"{scheme}://{address}:{port}/#token={cfg.token}"
         print(f"  open    {url}")
         if args.qr:
             print()
