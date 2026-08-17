@@ -125,6 +125,22 @@ class JournalMiddleware:
                 journal.record(store, scope, status, int((time.monotonic() - started) * 1000))
 
 
+def grace_for(every, fallback: float) -> float:
+    """How long a machine may stay quiet before the board stops believing it.
+
+    Three missed check-ins, floored so that a very chatty machine is not called dead over one
+    lost packet. A machine that never said how often it speaks — an older Argus — falls back to
+    the board's own `forget_after`, which is the only number there is for it.
+    """
+    try:
+        said = float(every)
+    except (TypeError, ValueError):
+        return fallback
+    if said <= 0:
+        return fallback
+    return max(12.0, said * 3)
+
+
 def create_app(cfg: Config) -> FastAPI:
     async def flushing() -> None:
         """Write out collapsed refusals even when nothing else happens.
@@ -197,7 +213,14 @@ def create_app(cfg: Config) -> FastAPI:
         now = time.time()
         for told in app.state.told.values():
             said = told.as_dict()
-            if now - told.at > cfg.forget_after:
+            quiet = now - told.at
+            # How long silence has to last before it means something. A machine that says it
+            # calls in every 5s and has said nothing for 20 is already worth doubting; one that
+            # speaks every 60s is not. A single flat number could not be right for both — with
+            # 45s, a box dead for forty seconds still read as perfectly fine.
+            said["grace"] = grace = grace_for(said.get("every"), cfg.forget_after)
+            said["quiet"] = round(quiet, 1)
+            if quiet > grace:
                 said["ok"] = False
                 said["why"] = "has not called in"
                 said["reason"] = "silent"

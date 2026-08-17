@@ -141,10 +141,30 @@ main {
    alone is too faint to tell two machines apart at a glance; this is what does it. */
 /* A mark, not a control. It was a control for a while and nobody could find it: .55rem is
    not a target, and a title attribute does not make one. */
+/* The machine's own colour, as a mark. */
 .mdot {
   flex: none; width: .55rem; height: .55rem; border-radius: 50%;
   background: var(--mc, var(--dim));
 }
+
+/* …and whether it is answering, which is a different question and needs a different answer.
+   The mark told you which machine it was; the ring around it tells you whether it is there. */
+.led { position: relative; width: .6rem; height: .6rem; }
+.led::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid transparent;
+}
+.led.alive::after { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+.led.doubt::after { border-color: var(--warn); }
+.led.dead::after { border-color: var(--bad); }
+/* Gone is worth more than a ring: the mark itself goes out. */
+.led.dead { background: var(--bad); }
+.led.doubt { background: var(--warn); }
+/* Overdue pulses, because "it should have spoken by now" is a thing happening rather than a
+   state it is in. Still, not on a screen left on a wall by somebody who asked for calm. */
+@keyframes waiting { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.led.doubt::after { animation: waiting 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .led.doubt::after { animation: none; } }
 
 /* Turning this Argus off, on the tile, where the machine allows it. Quiet until you are on
    it — it is not the reason anyone is reading the board — and unmistakable once you are. */

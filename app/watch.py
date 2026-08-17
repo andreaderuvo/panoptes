@@ -50,6 +50,10 @@ class Seen:
             "detail": self.detail,
             "at": self.at,
             "ago": round(time.time() - self.at, 1) if self.at else None,
+            # How long since this machine last said anything. For one that is polled it is the
+            # age of the last successful answer; for one that announces itself, the board adds
+            # a grace period alongside. The page needs both to say how sure it is.
+            "quiet": round(time.time() - self.at, 1) if self.at else None,
         }
 
 

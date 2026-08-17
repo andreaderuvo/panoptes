@@ -740,9 +740,39 @@ function sessionChip(session, url) {
   return chip;
 }
 
+/** Alive, doubtful, or gone — and how sure the board is.
+ *
+ *  `ok` used to be a boolean shown the same way for both kinds of machine, and for one that
+ *  announces itself that is a lie with a timer on it: it means "called in within the grace
+ *  period", so a box that had been dead for forty seconds still read as perfectly fine. A
+ *  polled machine is different — the board spoke to it three seconds ago and knows.
+ *
+ *  Three states, so the middle one exists at all:
+ *    green   heard from well within the time it promised
+ *    amber   overdue, but not yet long enough to call it gone
+ *    red     silent past the grace, or refusing to answer
+ */
+function health(machine) {
+  if (!machine.ok) return { state: 'dead', why: whyNot(machine) };
+  const quiet = machine.quiet ?? 0;
+  const grace = machine.grace || 0;
+  // Polled machines carry no grace: the board asked, and got an answer.
+  const overdue = grace ? quiet > grace / 3 : quiet > 30;
+  return overdue
+    ? { state: 'doubt', why: t('last heard {when}', { when: ago(quiet) }) }
+    : { state: 'alive', why: t('answering') };
+}
+
 function card(machine) {
+  const state = health(machine);
+  const life = el('span', {
+    className: `mdot led ${state.state}`,
+    title: state.why,
+    'aria-label': state.why,
+  });
+
   const head = el('div', { className: 'cardhead' }, [
-    el('span', { className: 'mdot', 'aria-hidden': 'true' }),
+    life,
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
@@ -763,6 +793,12 @@ function card(machine) {
    */
   const readouts = el('span', { className: 'readouts' });
   head.append(readouts);
+
+  // A colour is a glance; the words are for when the glance made you look twice. Only shown
+  // when there is something to say, so an ordinary tile does not carry a timestamp for ever.
+  if (state.state === 'doubt') {
+    readouts.append(el('span', { className: 'state warn', textContent: state.why }));
+  }
 
   if (!machine.ok) {
     readouts.append(el('span', { className: 'state bad', textContent: whyNot(machine) }));
