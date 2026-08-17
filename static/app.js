@@ -19,11 +19,68 @@ if (fromBar) {
 }
 let token = localStorage.getItem(KEY) || '';
 
-// The bar at the top of a phone matches the page rather than staying dark over a light
-// one. Argus does the same; two windows of the same thing should not disagree.
-document.querySelector('meta[name=theme-color]')?.setAttribute(
-  'content', document.documentElement.dataset.theme === 'light' ? '#ffffff' : '#0b0e14',
-);
+/* Dark, light, or whatever the machine says.
+ *
+ *  The page used to replay Argus's stored choice and stop there — which works only if you
+ *  have opened Argus on this exact origin, and localStorage is per origin, so on a board at
+ *  its own port it never had. It was always dark and there was no way to say otherwise.
+ *
+ *  Kept in Panoptes' own key, falling back to Argus's when there is one: two windows of the
+ *  same thing should agree when they can, and disagreeing is better than one of them being
+ *  stuck.
+ */
+const THEME = 'panoptes.theme';
+const THEMES = ['dark', 'light', 'auto'];
+
+function storedTheme() {
+  const mine = localStorage.getItem(THEME);
+  if (THEMES.includes(mine)) return mine;
+  try {
+    const theirs = JSON.parse(localStorage.getItem('argus.prefs') || '{}').theme;
+    if (THEMES.includes(theirs)) return theirs;
+  } catch { /* nothing stored, or nothing readable */ }
+  return 'dark';
+}
+
+let theme = storedTheme();
+
+function applyTheme() {
+  const resolved = theme === 'auto'
+    ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+    : theme;
+  document.documentElement.dataset.theme = resolved;
+  // The bar at the top of a phone matches the page rather than staying dark over a light one.
+  document.querySelector('meta[name=theme-color]')?.setAttribute(
+    'content', resolved === 'light' ? '#ffffff' : '#0b0e14',
+  );
+  // The mark is a fixed-colour file, so it needs a twin rather than a filter: a dark tile
+  // with nine grey eyes on a white page is a black box, which is what it was.
+  for (const img of document.querySelectorAll('img.mark, link[rel=icon]')) {
+    const at = img.tagName === 'IMG' ? 'src' : 'href';
+    img.setAttribute(at, resolved === 'light' ? '/mark-light.svg' : '/mark.svg');
+  }
+  const b = document.getElementById('theme');
+  if (b) {
+    b.dataset.mode = resolved;
+    b.title = `Theme: ${theme}`;
+    b.setAttribute('aria-label', `Theme: ${theme}`);
+  }
+}
+
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  if (theme === 'auto') applyTheme();
+});
+
+// The stored strength, before the first tile paints.
+window.addEventListener('DOMContentLoaded', () => applyWash(), { once: true });
+
+document.getElementById('theme')?.addEventListener('click', () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+  localStorage.setItem(THEME, theme);
+  applyTheme();
+});
+
+applyTheme();
 
 /** Somewhere to put the token when you did not arrive by link.
  *
@@ -72,9 +129,42 @@ const MACHINE_COLOURS = [
  *  bothered to write it down. And the hash is there so that a board nobody has configured
  *  is still readable — which is the state every board starts in.
  */
+/* How strongly a machine's colour washes its tile.
+ *
+ *  The default is faint on purpose — the board's job is to say which machine wants you, and
+ *  a tile shouting its own identity competes with that. But faint enough to be unsure it is
+ *  there is not a default, it is a bug you cannot report, so it is a setting.
+ *
+ *  A multiplier rather than a percentage: the two themes need different amounts to look the
+ *  same, and a number chosen in one of them would be wrong in the other.
+ */
+const WASH = 'panoptes.wash';
+const WASHES = [0, 1, 2, 3, 4.5];
+let washStep = (() => {
+  const n = Number(localStorage.getItem(WASH));
+  return Number.isInteger(n) && n >= 0 && n < WASHES.length ? n : 2;
+})();
+
+function applyWash() {
+  document.documentElement.style.setProperty('--wash-mul', String(WASHES[washStep]));
+}
+
 const PICKS = 'panoptes.colours';
 let picks = (() => { try { return JSON.parse(localStorage.getItem(PICKS)) || {}; } catch { return {}; } })();
 const savePicks = () => localStorage.setItem(PICKS, JSON.stringify(picks));
+
+/* A line of your own on a tile.
+ *
+ *  Everything else a tile says, a machine said. This is the part only you know: what the box
+ *  is for, who else uses it, why it is at 96% and whether that matters. Kept the same way
+ *  colours are — yours in this browser, a default in the config for everyone — because it is
+ *  the same kind of fact about the same thing.
+ */
+const NOTES = 'panoptes.notes';
+const MAX_NOTE = 140;
+let notes = (() => { try { return JSON.parse(localStorage.getItem(NOTES)) || {}; } catch { return {}; } })();
+const saveNotes = () => localStorage.setItem(NOTES, JSON.stringify(notes));
+const noteFor = (machine) => (notes[machine.name] ?? machine.note ?? '').trim();
 
 function fromPalette(said) {
   if (said == null || said === '') return null;
@@ -94,17 +184,19 @@ function colourFor(machine) {
   return MACHINE_COLOURS[h % MACHINE_COLOURS.length];
 }
 
-/** Eight swatches and a way back to the automatic one.
+/** What a tile can be asked, gathered in one place.
  *
- *  Argus's own picker, down to the palette and the grid, because a machine here and its
- *  sessions there are the same thing seen from different distances and should not offer two
- *  different ways to recolour it.
+ *  The colour picker lived on the machine's dot, which is .55rem across and, however many
+ *  title attributes it wore, was a control nobody found. Everything a tile offers beyond
+ *  "open it" goes behind one ⋯ instead: findable, out of the way, and somewhere for the next
+ *  thing to live rather than another button competing with the tile itself.
  */
-function pickColour(name, done) {
-  const body = el('div', { className: 'swatches' });
+function machineSheet(machine, done) {
+  const name = machine.name;
   const sheet = el('dialog', { className: 'sheet' });
   const close = () => sheet.close();
 
+  const swatches = el('div', { className: 'swatches' });
   MACHINE_COLOURS.forEach((c, i) => {
     const b = el('button', {
       className: `swatch${String(picks[name]) === String(i) ? ' on' : ''}`,
@@ -112,12 +204,60 @@ function pickColour(name, done) {
     });
     b.style.background = c;
     b.onclick = () => { picks = { ...picks, [name]: i }; savePicks(); close(); done(); };
-    body.append(b);
+    swatches.append(b);
   });
 
+  /* One strength for every tile, not for this one. Per-machine it would read as an accident
+   * — three tiles at three different depths of the same idea — and the question anyone
+   * actually has is "make them all clearer". Said so on the label, since a global control
+   * inside a sheet named after one machine is otherwise a trap. */
+  const strengths = el('div', { className: 'washes' });
+  const paintStrengths = () => {
+    strengths.replaceChildren(...WASHES.map((mul, i) => {
+      const b = el('button', {
+        className: `wash${i === washStep ? ' on' : ''}`, type: 'button',
+        title: mul === 0 ? 'no tint' : `tint × ${mul}`,
+        'aria-label': mul === 0 ? 'no tint' : `tint times ${mul}`,
+      });
+      // Each button shows what it does, in the colour it would do it to.
+      b.style.background = mul === 0 ? 'transparent'
+        : `color-mix(in srgb, ${colourFor(machine)} calc(var(--wash-base) * ${mul}), var(--panel))`;
+      b.onclick = () => {
+        washStep = i;
+        localStorage.setItem(WASH, String(i));
+        applyWash();
+        paintStrengths();
+      };
+      return b;
+    }));
+  };
+  paintStrengths();
+
+  /* Saved as it is typed. A note is one line about a machine, not a form, so a Save button
+   * would be a second thing to remember for no gain — and Escape closing the sheet must not
+   * be the thing that loses what you just wrote. */
+  const noteBox = el('textarea', {
+    className: 'notebox', rows: 2, maxLength: MAX_NOTE, spellcheck: false,
+    placeholder: machine.note ? `${machine.note} (from the config)` : 'what this machine is for',
+    value: notes[name] ?? '',
+  });
+  noteBox.addEventListener('input', () => {
+    const written = noteBox.value.slice(0, MAX_NOTE);
+    if (written.trim()) notes = { ...notes, [name]: written };
+    else { const { [name]: _drop, ...rest } = notes; notes = rest; }   // empty means "use the config's, or none"
+    saveNotes();
+  });
+  // Enter belongs to the text, not to the dialog.
+  noteBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.stopPropagation(); });
+
   sheet.append(
-    el('h2', { textContent: `Colour for ${name}` }),
-    body,
+    el('h2', { textContent: name }),
+    el('h3', { textContent: 'Colour' }),
+    swatches,
+    el('h3', { textContent: 'Tint strength — every tile' }),
+    strengths,
+    el('h3', { textContent: 'Note' }),
+    noteBox,
     el('div', { className: 'sheetfoot' }, [
       el('button', {
         className: 'ghost', type: 'button', textContent: 'Automatic',
@@ -128,10 +268,11 @@ function pickColour(name, done) {
     ]),
   );
   document.body.append(sheet);
-  sheet.addEventListener('close', () => sheet.remove());
+  sheet.addEventListener('close', () => { sheet.remove(); done(); });
   // The tile underneath is a link; nothing that happens in here is a click on it.
   sheet.addEventListener('click', (e) => e.stopPropagation());
   sheet.showModal();
+  return sheet;
 }
 
 const svgEl = (tag, props = {}, kids = []) => {
@@ -141,12 +282,17 @@ const svgEl = (tag, props = {}, kids = []) => {
   return node;
 };
 
-/** Argus's copy glyph, drawn rather than typed: `⧉` is missing from the fonts a browser
- *  falls back to, so the button was there, clickable, and invisible. */
-const copyIcon = () => svgEl('svg', { viewBox: '0 0 24 24', class: 'ico', 'aria-hidden': 'true' },
+/** Drawn rather than typed. `⧉` is missing from the fonts a browser falls back to, so the
+ *  copy button was there, focusable, clickable, and invisible. */
+const GLYPHS = {
+  copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
+  more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+};
+
+const icon = (name) => svgEl('svg', { viewBox: '0 0 24 24', class: 'ico', 'aria-hidden': 'true' },
   svgEl('path', {
-    d: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5', fill: 'none', stroke: 'currentColor',
-    'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    d: GLYPHS[name], fill: 'none', stroke: 'currentColor',
+    'stroke-width': '1.7', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
   }));
 
 const el = (tag, props = {}, kids = []) => {
@@ -224,11 +370,7 @@ function sessionChip(session, url) {
 
 function card(machine) {
   const head = el('div', { className: 'cardhead' }, [
-    el('button', {
-      className: 'mdot', type: 'button',
-      title: `colour for ${machine.name}`, 'aria-label': `colour for ${machine.name}`,
-      onclick: (e) => { e.stopPropagation(); pickColour(machine.name, draw); },
-    }),
+    el('span', { className: 'mdot', 'aria-hidden': 'true' }),
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
@@ -246,9 +388,9 @@ function card(machine) {
       title: `${machine.cores} cores · ${machine.load?.join(' ') || ''}`,
     }));
     if (machine.disk) {
-      // `/home/someone 18%` truncated to `/home/someone/w...`, losing the number. The
-      // tail of a path is the part that identifies it, so a long one keeps its tail and
-      // says the whole thing on hover.
+      // A root like `/home/someone/work 18%` truncated to `/home/someone/w...`, losing the
+      // number — which is the only part anyone reads. The tail of a path is the part that
+      // identifies it, so a long one keeps its tail and says the whole thing on hover.
       const path = machine.disk.path;
       const short = path.length > 14 ? `…/${path.split('/').filter(Boolean).pop() || path}` : path;
       head.append(el('span', {
@@ -258,6 +400,14 @@ function card(machine) {
       }));
     }
   }
+
+  head.append(el('button', {
+    className: 'more', type: 'button',
+    title: `more about ${machine.name}`, 'aria-label': `more about ${machine.name}`,
+    onclick: (e) => { e.stopPropagation(); machineSheet(machine, draw); },
+  }, icon('more')));
+
+  const note = noteFor(machine);
 
   const sessions = machine.sessions || [];
   const body = el('div', { className: 'chips' });
@@ -296,7 +446,7 @@ function card(machine) {
    *  Clicking the tile opens the machine here, in this browser — which is no use when the
    *  address is what you want: to paste into a terminal, into a note, into a message to
    *  somebody else, or into the other browser you are actually working in. The board knows
-   *  it and nowhere else does, so retyping `http://lab-one:8071` from a screen is the
+   *  it and nowhere else does, so reading an address off a screen and retyping it is the
    *  alternative. No token is in it: the board has never held that machine's real one.
    */
   if (machine.url) {
@@ -314,13 +464,13 @@ function card(machine) {
         const ok = await copyText(machine.url);
         toast(ok ? machine.url : 'could not reach the clipboard', !ok);
       },
-    }, copyIcon()));
+    }, icon('copy')));
   }
 
   const wants = sessions.some((s) => s.bell === 'asking');
   const card = el('article', {
     className: `card${wants ? ' wants' : ''}${machine.ok ? '' : ' cold'}${machine.url ? ' open' : ''}`,
-  }, [head, body, foot]);
+  }, [head, note ? el('p', { className: 'note', textContent: note }) : null, body, foot]);
   // Down the left edge, which is also where "this one wants you" is said — so a machine
   // asking for you overrides its own colour rather than competing with it.
   card.style.setProperty('--mc', colourFor(machine));
@@ -367,7 +517,15 @@ async function draw() {
     board.replaceChildren(el('p', { className: 'empty', textContent: 'No machines yet. Add them to the config and restart.' }));
   }
   const waiting = machines.reduce((n, m) => n + (m.sessions || []).filter((s) => s.bell === 'asking').length, 0);
-  count.textContent = `${machines.length} machine${machines.length === 1 ? '' : 's'}`
+  /* Tiles are Argus instances, not machines, and on this board three of them are on one
+   * box. Saying "4 machines" was simply wrong. The board already keeps what each one calls
+   * itself apart from what you called it, so the two can be counted separately — and when
+   * they agree, which is the usual case, only one number is worth saying.
+   */
+  const hosts = new Set(machines.map((m) => m.hostname || m.name)).size;
+  count.textContent = (hosts === machines.length
+    ? `${machines.length} machine${machines.length === 1 ? '' : 's'}`
+    : `${machines.length} argus on ${hosts} machine${hosts === 1 ? '' : 's'}`)
     + (waiting ? ` · ${waiting} waiting for you` : '');
   swept.textContent = answer.swept ? `swept ${ago((Date.now() / 1000) - answer.swept)}` : 'sweeping…';
   document.title = waiting ? `(${waiting}) Panoptes` : 'Panoptes';

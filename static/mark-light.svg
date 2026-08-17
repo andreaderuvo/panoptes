@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img"
+     aria-label="Panoptes: nine eyes, one of them awake">
+  <!-- The light-theme twin of mark.svg, in Argus's light palette value for value. A single
+       fixed-colour mark is a black box on a white page, which is what it was. -->
+  <!-- Argus Panoptes had a hundred eyes and some of them were always open. The mark is the
+       board itself: several machines, quiet, and one that wants you. Nine circles read as a
+       grid at any size; at 16 pixels the lit one is still the thing you see first. -->
+  <rect width="64" height="64" rx="14" fill="#ffffff"/>
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.25" fill="none" stroke="#dde2ea" stroke-width="1.5"/>
+  <g fill="#b6bec9">
+    <circle cx="19" cy="19" r="5"/>
+    <circle cx="32" cy="19" r="5"/>
+    <circle cx="45" cy="19" r="5"/>
+    <circle cx="19" cy="32" r="5"/>
+    <circle cx="45" cy="32" r="5"/>
+    <circle cx="19" cy="45" r="5"/>
+    <circle cx="32" cy="45" r="5"/>
+    <circle cx="45" cy="45" r="5"/>
+  </g>
+  <!-- The one awake. Argus's green, so the two marks are visibly related. -->
+  <circle cx="32" cy="32" r="7.5" fill="#17805a"/>
+  <circle cx="32" cy="32" r="3" fill="#ffffff"/>
+</svg>

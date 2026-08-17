@@ -24,7 +24,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
-from .config import Config, ConfigError, default_path
+from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
 
 VERSION = "0.0.1"
@@ -107,12 +107,15 @@ def create_app(cfg: Config) -> FastAPI:
         where each machine lives, never how to get in — it already knows that, per origin,
         or it does not and you go and let it know once."""
         painted = {m.name: m.colour for m in cfg.machines if m.colour}
+        noted = {m.name: m.note for m in cfg.machines if m.note}
         machines = [app.state.seen[m.name].as_dict() if m.name in app.state.seen
                     else {"name": m.name, "url": m.link, "ok": False, "why": "not asked yet"}
                     for m in cfg.machines]
         for said in machines:
             if said["name"] in painted:
                 said["colour"] = painted[said["name"]]
+            if said["name"] in noted:
+                said["note"] = noted[said["name"]]
         # An announced machine is believed until it has been quiet too long. There is no
         # request to fail here, so silence is the only signal there is.
         now = time.time()
@@ -228,6 +231,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, default=default_path())
     parser.add_argument("--qr", action="store_true",
                         help="print a code you can photograph, for each address it answers on")
+    # Overrides the config for this run only. The usual reason is a port already taken, and
+    # editing a file to find that out is a slow way to try the next one.
+    parser.add_argument("--listen", metavar="HOST:PORT",
+                        help=f"where to answer (default {DEFAULT_LISTEN}, or whatever the config says)")
     args = parser.parse_args(argv)
 
     try:
@@ -236,6 +243,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"panoptes: {e}")
         return 2
 
+    if args.listen:
+        cfg.listen = args.listen
     host, _, port = cfg.listen.rpartition(":")
     print(f"\n  panoptes {VERSION} · {len(cfg.machines)} machine(s)"
           f"{' · accepts announcements' if cfg.registration_token else ''}")

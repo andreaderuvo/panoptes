@@ -14,9 +14,11 @@
   // the choice; this only replays it, so the two agree without anyone setting it twice.
   try {
     var raw = localStorage.getItem('argus.prefs') || '{}';
-    var t = JSON.parse(raw).theme || 'dark';
+    var t = localStorage.getItem('panoptes.theme') || JSON.parse(raw).theme || 'dark';
     if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
+    // Before the mark paints, or a light page shows a dark tile for a frame.
+    if (t === 'light') document.write('<link rel="preload" as="image" href="/mark-light.svg">');
   } catch (e) { document.documentElement.dataset.theme = 'dark'; }
 </script>
 <link rel="stylesheet" href="/style.css">
@@ -27,6 +29,15 @@
     <h1>Panoptes</h1>
     <span id="swept" class="dim"></span>
     <span class="grow"></span>
+    <button id="theme" class="icon" title="Theme" aria-label="Theme">
+      <!-- Half filled, the way a thing with two states is drawn: the moon says which half. -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="sun" d="M12 4.2v-1.7M12 21.5v-1.7M4.2 12H2.5M21.5 12h-1.7M6.5 6.5 5.3 5.3M18.7 18.7l-1.2-1.2M6.5 17.5l-1.2 1.2M18.7 5.3l-1.2 1.2"/>
+        <circle class="orb" cx="12" cy="12" r="4.2"/>
+        <path class="moon" d="M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z"/>
+      </svg>
+    </button>
     <button id="full" class="icon" title="Full screen" aria-label="Full screen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

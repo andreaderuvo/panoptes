@@ -33,7 +33,10 @@ class Seen:
         return {
             **self.overview,
             "name": self.name,
-            "hostname": self.overview.get("name"),
+            # A machine that announces itself has already said both: the name you gave it
+            # and the hostname it answers to. One that is polled has only said the hostname,
+            # in `name`, which this is about to overwrite.
+            "hostname": self.overview.get("hostname") or self.overview.get("name"),
             "url": self.url,
             "ok": self.ok,
             "why": self.why,

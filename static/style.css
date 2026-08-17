@@ -13,7 +13,8 @@
   /* How much of a machine's colour reaches its tile. Dark needs more of it than light does
      to be seen at all — a fixed percentage is legible in one theme and invisible in the
      other, which is the whole reason this is a variable and not a number. */
-  --wash: 12%;
+  --wash-base: 12%;
+  --wash: calc(var(--wash-base) * var(--wash-mul, 1));
   --warn: #d6b98f;
   --bad: #e0736c;
   color-scheme: dark;
@@ -30,7 +31,7 @@
   --bright: #10141b;
   --accent: #17805a;
   --on-accent: #ffffff;
-  --wash: 7%;
+  --wash-base: 7%;
   --warn: #8a6d3b;
   --bad: #b53d31;
   color-scheme: light;
@@ -68,6 +69,11 @@ header .icon {
 header .icon:active { background: var(--line); }
 header .icon:hover { color: var(--bright); }
 header .icon svg { width: 20px; height: 20px; }
+/* One glyph, two drawings. Whichever half is showing is the theme you are looking at, so
+   the button says the state rather than the action — the same way Argus's does. */
+#theme .moon { display: none; }
+#theme[data-mode="light"] .sun, #theme[data-mode="light"] .orb { display: none; }
+#theme[data-mode="light"] .moon { display: inline; }
 h1 { margin: 0; font-size: 1.05rem; color: var(--bright); letter-spacing: -.01em; }
 .dim { color: var(--dim); font-size: .8rem; }
 .grow { flex: 1; }
@@ -118,30 +124,36 @@ main {
 
 .cardhead {
   display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem;
-  /* The readings drop to a second line rather than squeezing the name. `lab-two`
-     broke across two lines and made its tile taller than every other one in the row,
+  /* The readings drop to a second line rather than squeezing the name. A fourteen-character
+     name broke across two lines and made its tile taller than every other one in the row,
      which reads as that machine being different when it is only longer. */
   flex-wrap: wrap;
 }
 /* The machine's colour said once, at full strength, where the eye already is. The wash
    alone is too faint to tell two machines apart at a glance; this is what does it. */
- /* The dot is also the way to change it. A hit area of .55rem is not a target anyone can
-    hit, so the button is tap-sized and the dot is drawn inside it — the visible mark stays
-    small, which is the point of it. */
+/* A mark, not a control. It was a control for a while and nobody could find it: .55rem is
+   not a target, and a title attribute does not make one. */
 .mdot {
-  flex: none; width: 1.5rem; height: 1.5rem; margin: -.3rem -.35rem -.3rem -.25rem;
-  padding: 0; border: 0; border-radius: 50%;
-  background: none; cursor: pointer;
-  display: inline-grid; place-items: center;
-}
-.mdot::before {
-  content: ''; width: .55rem; height: .55rem; border-radius: 50%;
+  flex: none; width: .55rem; height: .55rem; border-radius: 50%;
   background: var(--mc, var(--dim));
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--mc, var(--dim)) 45%, transparent);
-  transition: box-shadow .12s ease;
 }
-.mdot:hover::before { box-shadow: 0 0 0 4px color-mix(in srgb, var(--mc, var(--dim)) 30%, transparent); }
-.mdot:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+
+/* Everything a tile offers beyond opening it. Quiet until the pointer is on the tile, so a
+   board of twelve machines is not a board of twelve buttons. */
+.more {
+  flex: none; width: 1.6rem; height: 1.6rem; margin: -.2rem -.3rem -.2rem 0;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: .35rem;
+  background: none; cursor: pointer;
+  /* Always there. It was revealed on hover, which is the same mistake as hiding it on a
+     .55rem dot: a control you have to already know about is a control nobody uses. Quiet
+     is enough — it is the dim ink, next to readings in the same ink. */
+  color: var(--dim);
+  transition: color .12s ease, border-color .12s ease;
+}
+.more .ico { width: 17px; height: 17px; }
+.more:hover { color: var(--bright); border-color: var(--line); background: var(--bg); }
+.more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Argus's picker, the same palette in the same four-by-two grid. */
 .sheet {
@@ -150,8 +162,19 @@ main {
   min-width: min(92vw, 20rem);
 }
 .sheet::backdrop { background: rgb(0 0 0 / .5); }
-.sheet h2 { margin: 0 0 .8rem; font-size: .95rem; color: var(--bright); font-weight: 600; }
+.sheet h2 { margin: 0 0 .1rem; font-size: 1rem; color: var(--bright); font-weight: 600; }
+.sheet h3 {
+  margin: .9rem 0 .5rem; font-size: .74rem; font-weight: 600; color: var(--dim);
+  text-transform: uppercase; letter-spacing: .06em;
+}
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: .55rem; }
+/* Five steps of the same idea, each drawn at the strength it sets. */
+.washes { display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; }
+.wash {
+  height: 34px; border-radius: .4rem; border: 1px solid var(--line); cursor: pointer;
+}
+.wash.on { border-color: var(--bright); box-shadow: inset 0 0 0 2px var(--panel); }
+.wash:active { transform: scale(.95); }
 .swatch { height: 46px; border-radius: .5rem; border: 1px solid var(--line); cursor: pointer; }
 .swatch.on { border-color: var(--bright); box-shadow: inset 0 0 0 2px var(--panel); }
 .swatch:active { transform: scale(.95); }
@@ -171,6 +194,22 @@ main {
 }
 .state.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
 .state.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+
+/* Your line, in your words, above the machine's own. Two lines at most: a tile is a glance,
+   and a paragraph here would push the sessions out of one. */
+.note {
+  margin: 0 0 .55rem; font-size: .78rem; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  border-left: 2px solid color-mix(in srgb, var(--mc, var(--line)) 55%, var(--line));
+  padding-left: .5rem;
+}
+
+.notebox {
+  width: 100%; resize: vertical; min-height: 3.4rem;
+  padding: .45rem .55rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .85rem;
+}
+.notebox:focus { border-color: var(--accent); outline: none; }
 
 .chips {
   display: flex; flex-wrap: wrap; gap: .35rem; align-items: center;

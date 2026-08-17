@@ -186,3 +186,45 @@ def test_a_colour_that_is_not_one_is_refused_at_startup():
     for right in ("0", "7", "#5fc9a3"):
         Config(token=BOARD, machines=[
             Machine(name="a", url="http://a:8090", token=WEAK, colour=right)]).validate()
+
+
+def test_a_machine_keeps_the_hostname_it_answers_to():
+    """Two questions that look like one. `name` is what you called it; `hostname` is what it
+    calls itself, and several Argus instances on one box share the latter — which is the only
+    way a board can say "4 argus on 2 machines" instead of claiming four boxes."""
+    client, app = announcing()
+    client.post("/api/report", headers={"Authorization": f"Bearer {REGISTER}"},
+                json={**OVERVIEW, "name": "the-name-i-gave-it", "hostname": "realbox"})
+    machine = client.get(f"/api/board?token={BOARD}").json()["machines"][0]
+    assert machine["name"] == "the-name-i-gave-it"
+    assert machine["hostname"] == "realbox"
+
+
+def test_a_polled_machine_reports_its_hostname_in_the_only_field_it_has():
+    """An older Argus, or any that is polled rather than announcing, says only `name`."""
+    client, _ = boarded({
+        "hetzner": Seen(name="hetzner", url="http://hetzner:8090", ok=True, at=1.0,
+                        overview={"name": "realbox", "sessions": []}),
+    })
+    machine = client.get(f"/api/board?token={BOARD}").json()["machines"][0]
+    assert machine["name"] == "hetzner" and machine["hostname"] == "realbox"
+
+
+def test_a_note_written_in_the_config_reaches_the_page():
+    """Everything else on a tile, a machine said about itself. A note is the part only the
+    person who set the board up knows: what the box is for, and why it looks like that."""
+    cfg = Config(token=BOARD, machines=[
+        Machine(name="hetzner", url="http://hetzner:8090", token=WEAK,
+                note="the one paying rent — nightly imports live here"),
+    ])
+    client = TestClient(create_app(cfg))
+    machine = client.get(f"/api/board?token={BOARD}").json()["machines"][0]
+    assert machine["note"].startswith("the one paying rent")
+
+
+def test_a_note_cannot_be_a_paragraph():
+    """A tile is a glance. Two hundred characters is already more than fits on one."""
+    from app.config import Config as C
+    cfg = C.from_dict({"token": BOARD, "machines": [
+        {"name": "a", "url": "http://a:8090", "token": WEAK, "note": "x" * 500}]})
+    assert len(cfg.machines[0].note) == 200

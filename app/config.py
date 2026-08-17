@@ -53,6 +53,10 @@ class Machine:
     # still override it for themselves in their own browser, which is where a preference
     # about how something looks belongs.
     colour: str = ""
+    # A line about what this machine is, for everyone who opens the board. A reader can write
+    # their own over the top of it in their own browser, and clearing theirs falls back to
+    # this — the same arrangement as `colour`, because it is the same kind of fact.
+    note: str = ""
     # Where a *browser* should go, which is not always where this board asks.
     #
     # A board running on the same machine as an Argus polls it over loopback, because that
@@ -102,7 +106,8 @@ class Config:
                 raise ConfigError("a machine needs a name, a url and a token")
             machines.append(Machine(name=name, url=url, token=token,
                                     reach=str(entry.get("reach") or "").strip(),
-                                    colour=str(entry.get("colour") or entry.get("color") or "").strip()))
+                                    colour=str(entry.get("colour") or entry.get("color") or "").strip(),
+                                    note=str(entry.get("note") or "").strip()[:200]))
         return cls(
             token=str(raw.get("token", "")),
             machines=machines,
@@ -152,7 +157,8 @@ class Config:
             "machines": [
                 {"name": m.name, "url": m.url, "token": m.token,
                  **({"reach": m.reach} if m.reach else {}),
-                 **({"colour": m.colour} if m.colour else {})}
+                 **({"colour": m.colour} if m.colour else {}),
+                 **({"note": m.note} if m.note else {})}
                 for m in self.machines
             ],
         }
