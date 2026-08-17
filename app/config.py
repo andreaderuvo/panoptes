@@ -93,6 +93,21 @@ class Config:
     # Where this was loaded from, so anything that lives beside the config — a reader's own
     # language catalogues, for one — can be found without threading the path through.
     config_path: Path | None = None
+    # A certificate, if you have one. Argus takes the same two keys and this board should not
+    # be the reason a fleet is half encrypted.
+    #
+    # Never required. On a LAN the address is a hostname or a private IP, and no public CA
+    # will sign either — so demanding HTTPS would turn a thirty-second setup into a
+    # certificate project, and the people who most need this are the ones who would give up.
+    # Where it is easy, take it: `tailscale serve` hands over a real certificate for a
+    # `*.ts.net` name with nothing to install on any device.
+    tls_cert: Path | None = None
+    tls_key: Path | None = None
+
+    def tls(self) -> tuple[Path, Path] | None:
+        if self.tls_cert and self.tls_key:
+            return self.tls_cert, self.tls_key
+        return None
 
     @classmethod
     def from_dict(cls, raw: dict) -> Config:
@@ -119,6 +134,8 @@ class Config:
             timeout=float(raw.get("timeout", DEFAULT_TIMEOUT)),
             registration_token=str(raw.get("registration_token") or ""),
             forget_after=float(raw.get("forget_after", 45.0)),
+            tls_cert=Path(cert) if (cert := raw.get("tls_cert")) else None,
+            tls_key=Path(key) if (key := raw.get("tls_key")) else None,
         )
 
     def validate(self) -> None:
@@ -148,6 +165,14 @@ class Config:
                 raise ConfigError("`registration_token` is the same as this board's token")
         if self.every < 1:
             raise ConfigError("`every` under a second would hammer the machines for nothing")
+        # One of the two is a typo, not a configuration: it would start on plain HTTP while
+        # its owner believed otherwise, which is the worst of the three possible states.
+        if bool(self.tls_cert) != bool(self.tls_key):
+            raise ConfigError("`tls_cert` and `tls_key` go together — one without the other "
+                              "would serve plain HTTP while looking configured")
+        for label, path in (("tls_cert", self.tls_cert), ("tls_key", self.tls_key)):
+            if path and not path.is_file():
+                raise ConfigError(f"`{label}` is not a file: {path}")
 
     def to_dict(self) -> dict:
         # `config_path` is where this came from, not something to write into it.
@@ -158,6 +183,8 @@ class Config:
             "timeout": self.timeout,
             "registration_token": self.registration_token,
             "forget_after": self.forget_after,
+            "tls_cert": str(self.tls_cert) if self.tls_cert else None,
+            "tls_key": str(self.tls_key) if self.tls_key else None,
             "machines": [
                 {"name": m.name, "url": m.url, "token": m.token,
                  **({"reach": m.reach} if m.reach else {}),

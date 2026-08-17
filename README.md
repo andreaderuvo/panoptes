@@ -284,6 +284,7 @@ Useful flags:
 | `--config PATH` | somewhere other than the default |
 | `--listen HOST:PORT` | default `127.0.0.1:8070` |
 | `--qr` | print the URL as a QR code too, one per address it answers on |
+| `--listen HOST:PORT` | override the config for this run — usually because a port is taken |
 
 To keep it running, a user unit is enough — and `loginctl enable-linger` so it survives your
 logging out:
@@ -355,6 +356,31 @@ gets you one page and no way through it.
 Which is why a VPN is the right shape here rather than a public URL — it makes the board and
 every machine on it reachable by the same names, from anywhere.
 
+### HTTPS, if you have a certificate
+
+Both take the same two keys, and neither requires them:
+
+```yaml
+tls_cert: /path/to/fullchain.pem
+tls_key:  /path/to/privkey.pem
+```
+
+The printed link and the QR code change to `https://` with them, so what you scan matches
+what the port speaks. One without the other is refused at startup — it would serve plain HTTP
+while looking configured, which is the worst of the three states.
+
+**It is never required, on purpose.** On a LAN the address is a hostname or a private IP, and
+no public CA will sign either; so "just use HTTPS" means a self-signed certificate the browser
+argues about on every device, or your own CA installed on each of them, or a public DNS name
+pointing at a machine that has none. That turns a thirty-second setup into a certificate
+project, and the people who most need this are the ones who would give up.
+
+What you give up without it is real and worth knowing: no installable PWA, no browser
+notifications, no in-app camera, and the clipboard falls back to an older API. What you mostly
+do *not* give up is confidentiality, if you are already behind a VPN — the traffic is
+encrypted on the wire either way. The exception is the token, which travels in the address
+once; on a shared LAN segment that is the thing worth encrypting.
+
 **Tailscale** — the one to pick, and the one this pairs with best:
 
 ```bash
@@ -373,8 +399,9 @@ machines:
     token: …
 ```
 
-`serve` puts a real certificate in front, which is also what unlocks an installable PWA and
-the clipboard API. Nothing is exposed to the internet: only devices on your tailnet can reach
+`serve` puts a real certificate in front — a genuine one, for a `*.ts.net` name, with nothing
+to install on any device — which is also what unlocks an installable PWA and the clipboard
+API. Nothing is exposed to the internet: only devices on your tailnet can reach
 it. **`tailscale funnel` does expose it publicly — don't.** Not for the board, and certainly
 not for an Argus, which is a shell.
 

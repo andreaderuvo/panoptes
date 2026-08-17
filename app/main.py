@@ -345,9 +345,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # Every address it can actually be reached on, not just the one it was told to bind.
     # 0.0.0.0 is not somewhere you can type into a phone.
+    # The scheme has to match what it will really answer on, or the printed link — and the QR
+    # code made from it — sends a browser to a port that speaks the other protocol.
+    scheme = "https" if cfg.tls() else "http"
     where = addresses() if host in ("", "0.0.0.0", "::") else [host]
     for address in where:
-        url = f"http://{address}:{port}/?token={cfg.token}"
+        url = f"{scheme}://{address}:{port}/?token={cfg.token}"
         print(f"  open    {url}")
         if args.qr:
             print()
@@ -355,8 +358,21 @@ def main(argv: list[str] | None = None) -> int:
             print()
     if not args.qr:
         print("          (panoptes --qr prints a code to photograph)")
-    print()
-    uvicorn.run(create_app(cfg), host=host or "127.0.0.1", port=int(port), log_level="warning")
+    if cfg.tls():
+        print("          (serving https — a self-signed certificate will make the browser ask)")
+    # Flushed explicitly: when the output is a log file rather than a terminal, the banner sits
+    # in the buffer until the process exits — so the address you need is missing from the log
+    # for exactly as long as the board is useful. Argus learned this the same way.
+    print(flush=True)
+    tls = cfg.tls()
+    uvicorn.run(
+        create_app(cfg),
+        host=host or "127.0.0.1",
+        port=int(port),
+        log_level="warning",
+        ssl_certfile=str(tls[0]) if tls else None,
+        ssl_keyfile=str(tls[1]) if tls else None,
+    )
     return 0
 
 
