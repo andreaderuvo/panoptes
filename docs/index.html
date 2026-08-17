@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panoptes — one page for every machine you run agents on</title>
+<meta name="description" content="One tile per machine: which are up, what is running on each, and which one is waiting for you. A board over your Argus instances. Self-hosted, MIT, no build step.">
+<link rel="icon" href="img/mark-192.png">
+<link rel="canonical" href="https://andreaderuvo.github.io/panoptes/">
+
+<meta property="og:title" content="Panoptes — which machine needs me?">
+<meta property="og:description" content="One page over every machine you run agents on: which are up, what is running on each, and which one is waiting for you.">
+<meta property="og:image" content="https://andreaderuvo.github.io/panoptes/img/board.png">
+<meta property="og:url" content="https://andreaderuvo.github.io/panoptes/">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Panoptes",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Linux, macOS",
+  "description": "One page for every machine you run agents on: which are up, what is running on each, and which one is waiting for you. A board over your Argus instances.",
+  "url": "https://andreaderuvo.github.io/panoptes/",
+  "codeRepository": "https://github.com/andreaderuvo/panoptes",
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Person", "name": "Andrea de Ruvo" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "screenshot": "https://andreaderuvo.github.io/panoptes/img/board.png"
+}
+</script>
+
+<style>
+  /* The same page furniture as the Argus one, on purpose: these are two halves of one
+     thing, and arriving at the second from the first should not feel like leaving. */
+  :root {
+    --bg: #0b0e14;
+    --panel: #11151d;
+    --line: #1e2530;
+    --text: #c5cad3;
+    --dim: #6b7484;
+    --bright: #e6e9ef;
+    --accent: #8fd6a0;
+    --on-accent: #0b0e14;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.2rem; }
+  a { color: var(--accent); }
+
+  header { padding: 4rem 0 2rem; text-align: center; }
+  header img.mark { width: 82px; height: 82px; }
+  h1 { font-size: clamp(2.1rem, 6.4vw, 3.2rem); margin: .5rem 0 .1rem; color: var(--bright); letter-spacing: -.02em; }
+  .tagline {
+    font-size: clamp(1.5rem, 4.2vw, 2.1rem); line-height: 1.25; font-weight: 650;
+    color: var(--bright); margin: .8rem auto .6rem; max-width: 32rem; letter-spacing: -.02em;
+  }
+  .sub { color: var(--text); max-width: 40rem; margin: 0 auto; font-size: 1.05rem; }
+  .sub strong { color: var(--bright); font-weight: 600; }
+  .cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin: 1.7rem 0 .9rem; }
+  .btn {
+    display: inline-block; padding: .7rem 1.3rem; border-radius: .6rem; text-decoration: none;
+    font-weight: 600; border: 1px solid var(--line);
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .btn.ghost { color: var(--text); }
+  .btn:hover { filter: brightness(1.08); }
+  .badges { color: var(--dim); font-size: .85rem; }
+  .oneliner {
+    display: block; max-width: 44rem; margin: 1.4rem auto .6rem; text-align: left;
+    background: var(--panel); border: 1px solid var(--line); border-radius: .6rem;
+    padding: .8rem 1rem; overflow-x: auto; white-space: pre;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86rem; color: var(--bright);
+  }
+  .oneliner .said { color: var(--dim); }
+
+  figure { margin: 2rem 0 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: .8rem; display: block; }
+  figcaption { color: var(--dim); font-size: .85rem; text-align: center; margin-top: .7rem; }
+
+  .pinshot { position: relative; margin: 2.2rem 0 0; }
+  .pinshot img { width: 100%; display: block; border: 1px solid var(--line); border-radius: .8rem; }
+  .pin {
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent);
+    font: 700 .82rem/26px ui-sans-serif, system-ui, sans-serif; text-align: center;
+    box-shadow: 0 0 0 4px rgb(11 14 20 / .75), 0 2px 10px rgb(0 0 0 / .5);
+    transform: translate(-50%, -50%); pointer-events: none;
+  }
+  .legend {
+    list-style: none; padding: 0; margin: 1.1rem auto 0; max-width: 52rem;
+    display: grid; gap: .6rem 1.8rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    color: var(--dim); font-size: .9rem; text-align: left;
+  }
+  .legend li { display: flex; gap: .55rem; align-items: baseline; }
+  .legend b {
+    flex: none; width: 20px; height: 20px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent);
+    font: 700 .75rem/20px ui-sans-serif, system-ui, sans-serif; text-align: center;
+  }
+  @media (max-width: 40rem) { .pin { display: none; } }
+
+  section { padding: 3.2rem 0; border-top: 1px solid var(--line); }
+  h2 { color: var(--bright); font-size: 1.5rem; margin: 0 0 1rem; letter-spacing: -.01em; }
+  h3 { color: var(--bright); font-size: 1.02rem; margin: 0 0 .3rem; }
+  p { margin: 0 0 1rem; }
+  .lead { max-width: 44rem; }
+  .grid { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: .7rem; padding: 1.1rem 1.2rem; }
+  .card p { margin: 0; color: var(--dim); font-size: .95rem; }
+
+  .cols { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  .cols .card h3 { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: .7rem; }
+  .cols .card.after { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .cols .card.after h3 { color: var(--accent); }
+  .cols ul { margin: 0; padding-left: 1.1rem; color: var(--dim); font-size: .96rem; }
+  .cols li { margin: .35rem 0; }
+  .cols .card.after li { color: var(--text); }
+
+  .shots { display: grid; gap: 1.4rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); align-items: start; }
+  .shots img { width: 100%; border: 1px solid var(--line); border-radius: .6rem; display: block; }
+  .shots p { color: var(--dim); font-size: .85rem; margin: .5rem 0 0; }
+
+  pre {
+    background: var(--panel); border: 1px solid var(--line); border-radius: .6rem;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: .88rem; line-height: 1.6;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--bright);
+  }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .92em; }
+  .note {
+    border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent);
+    padding: .9rem 1.1rem; border-radius: 0 .5rem .5rem 0; margin: 1.2rem 0;
+  }
+  footer { padding: 2.5rem 0 4rem; color: var(--dim); font-size: .9rem; text-align: center; border-top: 1px solid var(--line); }
+
+  details.ask { border-top: 1px solid var(--line); padding: .9rem 0; }
+  details.ask:last-of-type { border-bottom: 1px solid var(--line); }
+  details.ask summary { cursor: pointer; color: var(--bright); font-weight: 600; }
+  details.ask summary::marker { color: var(--dim); }
+  details.ask p { margin: .7rem 0 0; color: var(--dim); font-size: .96rem; max-width: 44rem; }
+
+  img.shot { cursor: zoom-in; }
+  #lightbox[hidden] { display: none; }
+  #lightbox {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; align-items: center; justify-content: center;
+    background: rgb(0 0 0 / .88); padding: 2.5rem 1rem 4rem;
+  }
+  #lightbox img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    border-radius: .4rem; box-shadow: 0 20px 60px rgb(0 0 0 / .6);
+  }
+  #lightbox .shut, #lightbox .step {
+    position: absolute; border: 0; background: rgb(255 255 255 / .08); color: #fff;
+    width: 44px; height: 44px; border-radius: 50%; font-size: 1.4rem; line-height: 1; cursor: pointer;
+  }
+  #lightbox .shut { top: 1rem; right: 1rem; }
+  #lightbox .step { top: 50%; transform: translateY(-50%); }
+  #lightbox .prev { left: 1rem; }
+  #lightbox .next { right: 1rem; }
+  #lightbox .shut:hover, #lightbox .step:hover { background: rgb(255 255 255 / .18); }
+  #lightbox .said {
+    position: absolute; left: 0; right: 0; bottom: 1rem; text-align: center;
+    color: rgb(255 255 255 / .75); font-size: .9rem; padding: 0 4rem;
+  }
+  @media (max-width: 34rem) { #lightbox .step { display: none; } #lightbox .said { padding: 0 1rem; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <img class="mark" src="img/mark.png" alt="">
+    <h1>Panoptes</h1>
+    <p class="tagline">Which machine needs me?</p>
+    <p class="sub">One tile per machine: which are up, what is running on each, and
+      <strong>which one is waiting for you</strong> — sorted to the top, in the only colour
+      on the board that means something. Click a session name and you are in that terminal,
+      on that machine. It is the board over your
+      <a href="https://github.com/andreaderuvo/argus">Argus</a> instances.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/andreaderuvo/panoptes">Get it on GitHub</a>
+      <a class="btn ghost" href="#start">Run it in a minute</a>
+      <a class="btn ghost" href="https://andreaderuvo.github.io/argus/">Argus</a>
+    </div>
+
+    <code class="oneliner">git clone https://github.com/andreaderuvo/panoptes &amp;&amp; cd panoptes
+pip install -r requirements.txt
+python3 -m app.main   <span class="said"># prints a URL with a token in it</span></code>
+    <p class="badges">MIT · Python + vanilla JS · no build step · no database · self-hosted</p>
+
+    <div class="pinshot">
+      <img class="shot" src="img/board.png" alt="Six machines on one board: five working, one out of disk, one that has stopped calling in, and one asking for you.">
+      <span class="pin" style="left:2.2%;  top:23%">1</span>
+      <span class="pin" style="left:50%;   top:20.7%">2</span>
+      <span class="pin" style="left:64%;   top:46%">3</span>
+      <span class="pin" style="left:85.5%; top:46%">4</span>
+    </div>
+    <ol class="legend">
+      <li><b>1</b><span>The one asking you something. It sorts to the top and it is the only tile wearing the accent.</span></li>
+      <li><b>2</b><span>Sessions, one chip each. Green is asking, amber has finished — click one and you are in it.</span></li>
+      <li><b>3</b><span>The fullest disk, and only that one. A board says there is a problem; it does not inventory filesystems.</span></li>
+      <li><b>4</b><span>A machine that has stopped calling in. Still there, still red — gone and never-existed must not look alike.</span></li>
+    </ol>
+    <figcaption>Six machines, one screen. The footer counts what is really there —
+      <code>4 argus on 2 machines</code>, when three of them are on one box.</figcaption>
+  </header>
+
+  <section>
+    <h2>When one machine becomes three</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Without</h3>
+        <ul>
+          <li>Three tabs, and you are the polling loop.</li>
+          <li>The agent that finished forty minutes ago finished into an empty room.</li>
+          <li>Which box was the one with the full disk? You open all of them to find out.</li>
+          <li>A machine that is off looks exactly like a machine you forgot you had.</li>
+        </ul>
+      </div>
+      <div class="card after">
+        <h3>With Panoptes</h3>
+        <ul>
+          <li>One page worth glancing at, because the whole point is that you are not looking.</li>
+          <li>The one that wants you is at the top, wearing the only accent on the board.</li>
+          <li>Load and the fullest disk on every tile, amber over 74%, red over 90%.</li>
+          <li>A machine that stops answering goes red and <em>stays on the board</em>, saying when it last called in.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>It cannot get into anything</h2>
+    <p class="lead">This is a page that reads six numbers off each machine, and it is built
+      so that losing it costs you a list of session names.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>One read-only key per machine</h3>
+        <p>A <em>watcher</em> token opens <code>GET /api/overview</code> on that machine's
+          Argus and nothing else: no shell, no files, no writes, no proxy.</p>
+      </div>
+      <div class="card">
+        <h3>No token ever reaches a browser</h3>
+        <p>The board holds them; the page never sees one. Clicking through to a machine
+          opens that machine's own Argus, in its own origin, with its own token.</p>
+      </div>
+      <div class="card">
+        <h3>No shell of its own</h3>
+        <p>Panoptes has no filesystem view, no terminal and no way to run a command it was
+          not told about by name — see below.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Two directions, because networks are not symmetrical</h2>
+    <p class="lead"><strong>The board asks (pull).</strong> Write the machine down and it
+      gets polled. Better wherever it works: a request that fails <em>is</em> the signal
+      that a machine is down, and one file says what is being watched.</p>
+<pre># ~/.config/panoptes/config.yaml
+machines:
+  - name: hetzner
+    url: http://hetzner.internal:8090
+    token: &lt;a watcher token from that machine's Argus&gt;</pre>
+
+    <p class="lead"><strong>The machine calls in (push).</strong> Some networks only go one
+      way — two boxes on the same wire, each with the other's MAC in its ARP table, and one
+      refusing everything inbound. No configuration on the board fixes that, so the machine
+      opens the connection instead, in the direction that already works.</p>
+<pre># argus config, on the machine that cannot be reached
+report_to:
+  url: http://board.internal:8070
+  token: &lt;the registration token&gt;
+  name: gpu2
+  every: 10</pre>
+    <p class="lead">Nothing invented here: it is what Prometheus does in agent mode, and
+      what every dial-out agent does — Tailscale, Cloudflare Tunnel, Teleport, the kubelet
+      registering with its API server. <strong>Local pull, remote push.</strong></p>
+
+    <div class="note">
+      <strong>Three rules keep the weak keys weak.</strong> Announcing and looking are
+      different tokens: the registration key cannot read the board, and the board's key
+      cannot invent machines. The list you wrote by hand wins, so nothing holding the
+      registration key can replace a real machine with one of its own. And silence is the
+      only signal there is — no request fails when nobody is asking, so a machine that
+      stops calling in goes cold rather than staying green for ever.
+    </div>
+  </section>
+
+  <section>
+    <h2>Starting and stopping, without a command in a request</h2>
+    <p class="lead">The ⋯ on a tile can start and stop things on that machine, and stop its
+      Argus. <strong>No command ever arrives in a request:</strong> each machine publishes
+      named things in its own config, and the board may ask for one of those names and
+      nothing else. That is the whole design, and it is what keeps a shared key harmless.</p>
+<pre># argus config, on the machine
+runnable:
+  - name: nightly
+    run: python3 nightly.py
+
+watchers:
+  - name: panoptes
+    token: …
+    may_run: true            # otherwise the token stays read-only
+    may_stop_argus: false    # the one thing this board cannot undo</pre>
+    <p class="lead">An ordinary board shows nothing in that section, which is correct:
+      pressing these has to be granted on the machine, not assumed by the page. Stopping an
+      Argus asks twice and says what it costs — every tmux session keeps running, but
+      nothing here can start it again; that takes a shell on that machine.</p>
+  </section>
+
+  <section>
+    <h2>Yours to read at a glance</h2>
+    <div class="shots">
+      <div>
+        <img class="shot" src="img/board-light.png" alt="The same board in the light theme.">
+        <p>Light or dark, following the device, and switchable.</p>
+      </div>
+      <div>
+        <img class="shot" src="img/board-phone.png" alt="The same board on a phone.">
+        <p>On a phone it is one column, and it installs as an app where the certificate
+          allows it.</p>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:1.4rem">
+      <div class="card">
+        <h3>A colour per machine</h3>
+        <p>Taken from the name, so it is the same on every device you open the board from —
+          and overridable, with the tint strength in your hands.</p>
+      </div>
+      <div class="card">
+        <h3>A line of your own</h3>
+        <p>A note per machine, written with the pencil on the tile: what the box is for,
+          what it was doing. Everything else on a tile, the machine said. This is the part
+          only you know.</p>
+      </div>
+      <div class="card">
+        <h3>A journal</h3>
+        <p>Who pressed stop, who tried to get in, and who invented a machine — with the
+          address it came from. The board is the only thing that knows which browser a
+          click came from.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="start">
+    <h2>Run it in a minute</h2>
+<pre>git clone https://github.com/andreaderuvo/panoptes &amp;&amp; cd panoptes
+pip install -r requirements.txt
+python3 -m app.main            # prints a URL with a token in it
+python3 -m app.main --qr       # and a code to photograph</pre>
+    <p>That is the board. Then tell it about your machines, or tell your machines about it —
+      both directions work, and which one you want depends on your network. The
+      <a href="https://github.com/andreaderuvo/panoptes#how-a-machine-gets-onto-the-board">README</a>
+      has both, with the exact configuration on each side.</p>
+  </section>
+
+  <section>
+    <h2>Before you try it</h2>
+
+    <details class="ask">
+      <summary>Do I need Argus for this to be any use?</summary>
+      <p>Yes — Panoptes reads each machine's Argus and links back into it. It is the second
+        half of the same idea: <a href="https://andreaderuvo.github.io/argus/">Argus</a> is
+        one machine in a browser tab, this is every machine on one page.</p>
+    </details>
+
+    <details class="ask">
+      <summary>What does it actually hold?</summary>
+      <p>Per machine: a name, a URL, a read-only watcher token, an optional colour and your
+        own note. Per sweep: hostname, uptime, load, memory, the fullest disk and the
+        session names with which of them is ringing. No file, no path, no command.</p>
+    </details>
+
+    <details class="ask">
+      <summary>What happens when I restart the board?</summary>
+      <p>The machines that announced themselves are still there. They used to be forgotten,
+        which meant a machine you had stopped did not go red — it <em>vanished</em>, and for
+        the one question this exists to answer that is the worst possible answer. Forgetting
+        one is now something you do on purpose.</p>
+    </details>
+
+    <details class="ask">
+      <summary>Several people watching one board?</summary>
+      <p>It works, and the journal is why it is worth mentioning: the machine records that
+        "panoptes" pressed stop, which is true and not enough. The board is the only thing
+        that knows which browser the click came from.</p>
+    </details>
+
+    <details class="ask">
+      <summary>What is it written in?</summary>
+      <p>Python on the server, vanilla JavaScript in the browser. No build step, no bundler,
+        no database — a file for the config, one for the machines that announced themselves
+        and one for the journal.</p>
+    </details>
+  </section>
+</div>
+
+<footer>
+  <p><a href="https://github.com/andreaderuvo/panoptes">github.com/andreaderuvo/panoptes</a> ·
+    <a href="https://andreaderuvo.github.io/argus/">Argus</a> · MIT ·
+    built by <a href="https://github.com/andreaderuvo">Andrea de Ruvo</a></p>
+  <p>Argus Panoptes — “the all-seeing” — had a hundred eyes, and some of them were always open.</p>
+</footer>
+
+<div id="lightbox" hidden aria-modal="true" role="dialog">
+  <button class="shut" type="button" aria-label="Close">&times;</button>
+  <button class="step prev" type="button" aria-label="Previous">&lsaquo;</button>
+  <img alt="">
+  <button class="step next" type="button" aria-label="Next">&rsaquo;</button>
+  <p class="said"></p>
+</div>
+
+<script>
+/* The same forty-line lightbox as the Argus page: a screenshot shrunk into a column is a
+   picture of nothing, and this page has no build step to hang a dependency off. */
+(function () {
+  var box = document.getElementById('lightbox');
+  if (!box) return;
+  var view = box.querySelector('img');
+  var said = box.querySelector('.said');
+  var shots = [].slice.call(document.querySelectorAll('img.shot'));
+  var at = 0;
+
+  function show(i) {
+    at = (i + shots.length) % shots.length;
+    var one = shots[at];
+    view.src = one.currentSrc || one.src;
+    view.alt = one.alt || '';
+    var fig = one.closest('figure');
+    said.textContent = (fig && fig.querySelector('figcaption') ? fig.querySelector('figcaption').textContent : one.alt) || '';
+    box.hidden = false;
+    document.body.style.overflow = 'hidden';
+    box.querySelector('.shut').focus();
+  }
+  function shut() {
+    box.hidden = true;
+    view.removeAttribute('src');
+    document.body.style.overflow = '';
+    if (shots[at]) shots[at].focus();
+  }
+
+  shots.forEach(function (one, i) {
+    one.tabIndex = 0;
+    one.addEventListener('click', function () { show(i); });
+    one.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(i); }
+    });
+  });
+
+  box.querySelector('.shut').addEventListener('click', shut);
+  box.querySelector('.prev').addEventListener('click', function () { show(at - 1); });
+  box.querySelector('.next').addEventListener('click', function () { show(at + 1); });
+  box.addEventListener('click', function (e) { if (e.target === box) shut(); });
+  document.addEventListener('keydown', function (e) {
+    if (box.hidden) return;
+    if (e.key === 'Escape') shut();
+    if (e.key === 'ArrowLeft') show(at - 1);
+    if (e.key === 'ArrowRight') show(at + 1);
+  });
+
+  var from = null;
+  box.addEventListener('touchstart', function (e) { from = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener('touchend', function (e) {
+    if (from === null) return;
+    var moved = e.changedTouches[0].clientX - from;
+    from = null;
+    if (Math.abs(moved) > 50) show(at + (moved < 0 ? 1 : -1));
+  });
+}());
+</script>
+
+</body>
+</html>

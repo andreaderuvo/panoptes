@@ -18,6 +18,8 @@ and it is the only tile wearing the accent. `old-faithful` is at 96% on `/var/li
 [![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](#running-it)
 [![companion to argus](https://img.shields.io/badge/companion%20to-argus-8fd6a0)](https://github.com/andreaderuvo/argus)
 
+**[panoptes, in one page →](https://andreaderuvo.github.io/panoptes/)**
+
 </div>
 
 ## What it is for
