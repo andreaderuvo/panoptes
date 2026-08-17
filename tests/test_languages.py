@@ -20,34 +20,59 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "static" / "app.js"
 LANG = ROOT / "static" / "lang"
 
-QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
+def unescape(js: str) -> str:
+    """What the engine sees, not what the file spells: `\\u2019` in the source is one
+    character in the catalogue, and comparing the two forms finds differences that are not
+    there."""
+    try:
+        return json.loads('"' + js.replace("\\'", "'").replace('"', '\\"') + '"')
+    except ValueError:
+        return js
 
 
 def keys_in_source() -> set[str]:
     """Every literal that reaches `t()` as its first argument.
 
-    Not a single regex, because the first argument is not always one literal: a plural is
-    written `t(n === 1 ? '{n} machine' : '{n} machines', …)`, and a pattern that only matched
-    a bare string silently skipped both branches — which is how a catalogue ends up with
-    entries nothing asks for and no entry for what is actually shown.
+    The argument region is found by walking the source, not by a regex, because the first
+    argument is not always one literal: a plural is written
+    `t(n === 1 ? '{n} machine' : '{n} machines', …)` and a pattern that matched a bare string
+    skipped both branches.
 
-    So the argument region is found by counting parentheses, and every literal inside it is
-    a key. `t(theme)` and `t(pattern)` pass a variable and contribute nothing here; the
-    literals those can hold are declared elsewhere and are covered separately below.
+    Walking has to know where strings begin and end. The first version of this counted
+    parentheses and stopped at the first comma at depth one — and half these strings have a
+    comma in them ("a shell on {name}, or whatever supervises it"), so the region was cut
+    through the middle of a literal and the key vanished. It reported the catalogue as having
+    an entry nothing asked for, when the truth was the opposite.
     """
     body = APP.read_text(encoding="utf-8")
     found: set[str] = set()
-    for m in re.finditer(r"\bt\(", body):
-        i, depth = m.end(), 1
+    for call in re.finditer(r"\bt\(", body):
+        i, depth = call.end(), 1
+        literals: list[str] = []
         while i < len(body) and depth:
-            if body[i] == "(":
+            char = body[i]
+            if char in "'\"":
+                # A literal, taken whole. Escapes are stepped over so an escaped quote does
+                # not end it early.
+                quote, i, buf = char, i + 1, []
+                while i < len(body) and body[i] != quote:
+                    if body[i] == "\\":
+                        buf.append(body[i:i + 2])
+                        i += 2
+                        continue
+                    buf.append(body[i])
+                    i += 1
+                literals.append("".join(buf))
+                i += 1
+                continue
+            if char == "(":
                 depth += 1
-            elif body[i] == ")":
+            elif char == ")":
                 depth -= 1
-            elif body[i] == "," and depth == 1:
+            elif char == "," and depth == 1:
                 break        # the variables come after the key
             i += 1
-        found.update(QUOTED.findall(body[m.end():i]))
+        found.update(unescape(one) for one in literals if one)
     return found
 
 

@@ -178,6 +178,31 @@ main {
 .swatch { height: 46px; border-radius: .5rem; border: 1px solid var(--line); cursor: pointer; }
 .swatch.on { border-color: var(--bright); box-shadow: inset 0 0 0 2px var(--panel); }
 .swatch:active { transform: scale(.95); }
+/* One row per thing this machine will start or stop. */
+.offers { display: grid; gap: .35rem; }
+.offer {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .4rem 0; border-bottom: 1px solid var(--line); font-size: .88rem;
+}
+.offer:last-child { border-bottom: 0; }
+.offer .meta { display: block; font-size: .74rem; color: var(--dim); }
+.offer .sw {
+  flex: none; min-width: 4.4rem; text-align: center; font-size: .7rem;
+  padding: .15rem .4rem; border: 1px solid var(--line); border-radius: .3rem; color: var(--dim);
+}
+.offer .sw.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.offer .ghost {
+  flex: none; height: 30px; padding: 0 .7rem;
+  border: 1px solid var(--line); border-radius: .35rem;
+  background: none; color: var(--text); font: inherit; font-size: .82rem; cursor: pointer;
+}
+.offer .ghost:hover { border-color: var(--accent); color: var(--bright); }
+.offer .ghost:disabled { opacity: .5; cursor: default; }
+/* The one-way one, said in the colour everything else on this board uses for trouble. */
+.ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.ghost.danger:hover { color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.sheet .hint { margin: .2rem 0 0; font-size: .82rem; color: var(--dim); }
+
 .langlist { display: grid; gap: .35rem; }
 .langrow {
   text-align: left; padding: .55rem .7rem;

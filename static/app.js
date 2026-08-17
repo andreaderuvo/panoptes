@@ -301,6 +301,69 @@ function colourFor(machine) {
   return MACHINE_COLOURS[h % MACHINE_COLOURS.length];
 }
 
+/** One request to the board, which passes it on. Throws with what the machine said. */
+async function ask(path) {
+  const r = await fetch(path, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const said = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(said.detail || `${r.status}`);
+  return said;
+}
+
+/** Turning an Argus off.
+ *
+ *  Not beside the start/stop buttons, because it is not one of them: those manage work on a
+ *  machine, this one takes away the way in. Nothing on this board can undo it — afterwards
+ *  there is nothing listening — so it asks twice and says plainly what it costs.
+ *
+ *  Only shown when the machine offers it: `may_stop_argus` on that machine's watcher entry.
+ */
+function stopArgusRow(machine, close, done) {
+  if (!machine.can_stop_argus) return null;
+  const press = el('button', {
+    className: 'ghost danger', type: 'button', textContent: t('Stop Argus'),
+    onclick: async () => {
+      const sure = await confirmStop(machine.name);
+      if (!sure) return;
+      press.disabled = true;
+      try {
+        await ask(`/api/do/${encodeURIComponent(machine.name)}/argus/stop`);
+        toast(t('{name} is stopping — its sessions carry on', { name: machine.name }));
+      } catch (e) {
+        toast(e.message, true);
+      }
+      close();
+      done();
+    },
+  });
+  return el('div', { className: 'offer' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { textContent: t('Argus itself') }),
+      el('span', { className: 'meta', textContent: t('only a shell on that machine can start it again') }),
+    ]),
+    press,
+  ]);
+}
+
+/** The second ask. A modal, because this is the one action on the board that is one-way. */
+function confirmStop(name) {
+  return new Promise((resolve) => {
+    const sheet = el('dialog', { className: 'sheet' });
+    const finish = (answer) => { resolve(answer); sheet.close(); };
+    sheet.append(
+      el('h2', { textContent: t('Stop Argus on {name}?', { name }) }),
+      el('p', { className: 'hint', textContent: t('Every tmux session keeps running — Argus only watches them. But this board cannot start it again: that takes a shell on {name}, or whatever supervises it there.', { name }) }),
+      el('div', { className: 'sheetfoot' }, [
+        el('button', { className: 'ghost', type: 'button', textContent: t('Cancel'), onclick: () => finish(false) }),
+        el('button', { className: 'ghost danger', type: 'button', textContent: t('Stop it'), onclick: () => finish(true) }),
+      ]),
+    );
+    document.body.append(sheet);
+    sheet.addEventListener('close', () => sheet.remove());
+    sheet.addEventListener('cancel', () => resolve(false));
+    sheet.showModal();
+  });
+}
+
 /** What a tile can be asked, gathered in one place.
  *
  *  The colour picker lived on the machine's dot, which is .55rem across and, however many
@@ -368,8 +431,51 @@ function machineSheet(machine, done) {
   // Enter belongs to the text, not to the dialog.
   noteBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.stopPropagation(); });
 
+  /* What this machine will let you start and stop.
+   *
+   *  The list comes from the machine, in its overview — the board neither knows nor invents
+   *  it, and it is empty unless somebody wrote `runnable` in that machine's own config. So an
+   *  ordinary board shows nothing here, which is correct: the ability to press these has to
+   *  be granted on the machine, not assumed by the page.
+   */
+  const offers = machine.runnable || [];
+  const doing = el('div', { className: 'offers' });
+  const paintOffers = () => {
+    doing.replaceChildren(...offers.map((one) => {
+      const state = el('span', { className: `sw${one.running ? ' on' : ''}`,
+        textContent: one.running ? t('running') : t('stopped') });
+      const press = el('button', {
+        className: 'ghost', type: 'button',
+        textContent: one.running ? t('Stop') : t('Start'),
+        onclick: async () => {
+          press.disabled = true;
+          press.textContent = '…';
+          try {
+            const said = await ask(`/api/do/${encodeURIComponent(name)}`
+              + `/${encodeURIComponent(one.name)}/${one.running ? 'stop' : 'start'}`);
+            // A machine the board cannot reach is told in the reply to its own next
+            // announcement, so "queued" is the honest answer rather than a green tick.
+            toast(said.queued ? t('{name} will be told next time it calls in', { name })
+              : t('{what}: {did}', { what: one.name, did: t(said.did || 'done') }));
+          } catch (e) {
+            toast(e.message, true);
+          }
+          close();
+          done();
+        },
+      });
+      return el('div', { className: 'offer' }, [
+        el('span', { className: 'grow', textContent: one.name }), state, press,
+      ]);
+    }));
+  };
+  paintOffers();
+
   sheet.append(
     el('h2', { textContent: name }),
+    offers.length ? el('h3', { textContent: t('Start and stop') }) : null,
+    offers.length ? doing : null,
+    machine.url ? stopArgusRow(machine, close, done) : null,
     el('h3', { textContent: t('Colour') }),
     swatches,
     el('h3', { textContent: t('Tint strength — every tile') }),

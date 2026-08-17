@@ -150,6 +150,48 @@ Three rules keep it honest:
   machine that stops calling in goes cold after `forget_after` rather than staying green
   for ever.
 
+## Starting and stopping
+
+The ⋯ on a tile can start and stop things on that machine, and stop its Argus — but only
+what that machine has agreed to, and the board neither knows nor invents the list.
+
+**No command ever arrives in a request.** That is the whole design, and it is what keeps the
+weak keys weak: each machine publishes named things in its own config, and the board may ask
+for one of those names and nothing else.
+
+```yaml
+# argus config, on the machine
+runnable:
+  - name: nightly
+    run: python3 nightly.py
+    cwd: /srv/work
+
+watchers:
+  - name: panoptes
+    token: …
+    may_run: true             # otherwise the token stays read-only
+    may_stop_argus: false     # the one thing this board cannot undo
+```
+
+An ordinary board shows nothing in that section, which is correct: pressing these has to be
+granted on the machine, not assumed by the page.
+
+**Stopping an Argus asks twice**, and says what it costs: every tmux session keeps running —
+Argus only watches them — but nothing here can start it again. That takes a shell on that
+machine, or whatever supervises it there. It is the only one-way action on the board.
+
+**For a machine this board cannot reach**, there is no connection to open, so the instruction
+waits and travels back in the reply to that machine's own next announcement. The board says
+`queued` rather than showing a tick it has not earned. On the machine:
+
+```yaml
+obey_board: true              # off by default: announcing is not agreeing to take orders
+board_may_stop_argus: false
+```
+
+Handed over once. If it does not happen, press the button again — better than a board that
+keeps insisting at a machine which has already refused.
+
 ## Colours, tints and notes
 
 A machine's colour comes from its name, hashed into Argus's palette — no configuration, and

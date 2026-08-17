@@ -228,3 +228,84 @@ def test_a_note_cannot_be_a_paragraph():
     cfg = C.from_dict({"token": BOARD, "machines": [
         {"name": "a", "url": "http://a:8090", "token": WEAK, "note": "x" * 500}]})
     assert len(cfg.machines[0].note) == 200
+
+
+# ------------------------------------------------------ starting and stopping, both ways
+
+def test_the_board_passes_an_action_through_with_its_own_weak_key(monkeypatch):
+    """The page has no key for a machine — that is the whole design — so the board is what
+    carries the request. It adds nothing and invents nothing: the name goes through as given
+    and the machine refuses it if it is not one of its own."""
+    sent = {}
+
+    class Answer:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"name": "nightly", "did": "started"}
+
+    async def pretend(url, **kw):
+        sent.update(url=url, auth=kw["headers"]["Authorization"])
+        return Answer()
+
+    client, app = boarded()
+    monkeypatch.setattr(app.state.http, "post", pretend)
+    said = client.post(f"/api/do/hetzner/nightly/start?token={BOARD}")
+    assert said.status_code == 200 and said.json()["did"] == "started"
+    assert sent["url"] == "http://hetzner:8090/api/runnable/nightly/start"
+    assert sent["auth"] == f"Bearer {WEAK}"
+
+
+def test_only_start_and_stop_go_through():
+    client, _ = boarded()
+    for action in ("restart", "exec", "kill"):
+        assert client.post(f"/api/do/hetzner/nightly/{action}?token={BOARD}").status_code == 400
+
+
+def test_an_action_for_a_machine_nobody_configured_is_refused():
+    client, _ = boarded()
+    assert client.post(f"/api/do/nowhere/nightly/start?token={BOARD}").status_code == 404
+
+
+def test_doing_anything_needs_the_boards_token():
+    client, _ = boarded()
+    assert client.post("/api/do/hetzner/nightly/start").status_code == 401
+    assert client.post(f"/api/do/hetzner/nightly/start?token={REGISTER}").status_code == 401
+
+
+def test_a_machine_the_board_cannot_reach_is_told_in_its_own_reply():
+    """The case this exists for. There is no connection to open, so the instruction waits and
+    travels back along the request the machine itself makes."""
+    client, app = announcing()
+    weak = {"Authorization": f"Bearer {REGISTER}"}
+    client.post("/api/report", json=OVERVIEW, headers=weak)
+
+    queued = client.post(f"/api/do/gpu2/nightly/stop?token={BOARD}")
+    assert queued.status_code == 200 and queued.json()["queued"] is True
+
+    # It comes back once, in the reply to the next announcement.
+    said = client.post("/api/report", json=OVERVIEW, headers=weak).json()
+    assert said["do"] == [{"name": "nightly", "action": "stop"}]
+
+    # And once only: if it did not happen, the person presses the button again, which is
+    # better than a board insisting at a machine that has already refused.
+    again = client.post("/api/report", json=OVERVIEW, headers=weak).json()
+    assert again["do"] == []
+
+
+def test_pressing_the_same_button_twice_queues_one_thing():
+    client, app = announcing()
+    weak = {"Authorization": f"Bearer {REGISTER}"}
+    client.post("/api/report", json=OVERVIEW, headers=weak)
+    for _ in range(3):
+        client.post(f"/api/do/gpu2/nightly/start?token={BOARD}")
+    said = client.post("/api/report", json=OVERVIEW, headers=weak).json()
+    assert said["do"] == [{"name": "nightly", "action": "start"}]
+
+
+def test_a_reply_carries_nothing_when_nothing_was_asked():
+    client, _ = announcing()
+    said = client.post("/api/report", json=OVERVIEW,
+                       headers={"Authorization": f"Bearer {REGISTER}"}).json()
+    assert said["do"] == []

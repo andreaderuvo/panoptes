@@ -24,6 +24,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
+import httpx
+
 from . import languages
 from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
@@ -86,6 +88,9 @@ async def sweep(app: FastAPI) -> None:
 def create_app(cfg: Config) -> FastAPI:
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
+        # One client for the passing-through, kept open: a new connection per button press is
+        # a handshake nobody needs, and the sweeper has its own for the same reason.
+        app.state.http = httpx.AsyncClient(follow_redirects=False)
         app.state.sweeper = asyncio.create_task(sweep(app))
         try:
             yield
@@ -93,6 +98,7 @@ def create_app(cfg: Config) -> FastAPI:
             app.state.sweeper.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await app.state.sweeper
+            await app.state.http.aclose()
 
     app = FastAPI(title="Panoptes", version=VERSION, docs_url=None, redoc_url=None,
                   openapi_url="/api/openapi.json", lifespan=lifespan)
@@ -102,6 +108,13 @@ def create_app(cfg: Config) -> FastAPI:
     # two are believed for different reasons and go stale differently.
     app.state.told: dict[str, Seen] = {}
     app.state.swept = 0.0
+    # Instructions for machines this board cannot reach, waiting for them to call in. In
+    # memory on purpose: a board that restarts should forget what it was about to say rather
+    # than replay it at a machine that has moved on.
+    app.state.queued: dict[str, list[dict]] = {}
+    # Replaced by the lifespan's own, and present before it so a TestClient — which does run
+    # the lifespan — and a bare create_app both work.
+    app.state.http = httpx.AsyncClient(follow_redirects=False)
     # Where a reader's own catalogues live. Set from the config path so it moves with it.
     app.state.lang = languages.lang_dir(getattr(cfg, "config_path", None) or default_path())
 
@@ -177,7 +190,61 @@ def create_app(cfg: Config) -> FastAPI:
             ok=True,
             overview={k: v for k, v in body.items() if k not in ("reach",)},
         )
-        return {"heard": name}
+        # The reply is the only way to say anything to a machine on the far side of a
+        # one-way network, so it carries whatever was asked for while it was away. Handed
+        # over once: if it does not happen, the person presses the button again — better than
+        # a board that keeps insisting at a machine that has already refused.
+        waiting = app.state.queued.pop(name, [])
+        return {"heard": name, "do": waiting}
+
+    @app.post("/api/do/{name}/{what}/{action}", summary="Start or stop something on a machine")
+    async def do_one(name: str, what: str, action: str) -> dict:
+        """Passed straight through to that machine, with the weak key this board holds.
+
+        The board adds nothing and invents nothing: `what` has to be a name that machine
+        published, and if it is not, that machine says so. This exists rather than letting
+        the page call the machine directly because the page has no key for it — which is the
+        whole design, and the reason clicking a tile opens a new origin instead.
+
+        For a machine that announces itself, the board cannot reach it at all. Then the
+        request is written down and handed over the next time it calls in, and the answer
+        here says `queued` rather than pretending it happened.
+        """
+        if action not in ("start", "stop"):
+            raise HTTPException(status_code=400, detail="start or stop")
+
+        machine = next((m for m in cfg.machines if m.name == name), None)
+        if machine is None:
+            if name not in app.state.told:
+                raise HTTPException(status_code=404, detail=f"no machine called {name}")
+            # Nothing here can reach it. Leave the instruction where its own next
+            # announcement will find it.
+            queue = app.state.queued.setdefault(name, [])
+            if not any(q["name"] == what and q["action"] == action for q in queue):
+                queue.append({"name": what, "action": action})
+            return {"queued": True, "machine": name, "name": what, "action": action}
+
+        # The reserved name. `argus` is the server itself, which has its own door — and only
+        # `stop`, because nothing that is off can be asked to come back on.
+        if what == "argus":
+            if action != "stop":
+                raise HTTPException(status_code=400, detail="argus can only be stopped")
+            where = f"{machine.url.rstrip('/')}/api/shutdown"
+        else:
+            where = f"{machine.url.rstrip('/')}/api/runnable/{what}/{action}"
+
+        try:
+            answer = await app.state.http.post(
+                where,
+                headers={"Authorization": f"Bearer {machine.token}"},
+                timeout=cfg.timeout + 5,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"{name}: {type(e).__name__}") from e
+        if answer.status_code >= 400:
+            raise HTTPException(status_code=answer.status_code,
+                                detail=f"{name}: {answer.text[:200]}")
+        return {"machine": name, **answer.json()}
 
     @app.get("/api/languages", summary="The interface languages available")
     async def list_languages() -> list[dict]:
