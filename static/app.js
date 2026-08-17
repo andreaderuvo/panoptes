@@ -221,6 +221,18 @@ document.getElementById('theme')?.addEventListener('click', () => {
 
 applyTheme();
 
+/* Installable, and quick to open — but only where the browser allows it.
+ *
+ *  A service worker needs a secure context. `isSecureContext` rather than a protocol test,
+ *  because `http://localhost` counts as one and so does an origin you have told Chrome to
+ *  trust in `chrome://flags/#unsafely-treat-insecure-origin-as-secure` — which is the honest
+ *  answer to "can I install this from my phone on a LAN": yes, if you say so explicitly, or
+ *  put a real certificate in front with `tailscale serve`.
+ */
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 /* The catalogue before the first paint. `draw()` is what puts words on the screen and it is
  * kicked off below; this has to have landed by then or the first frame is English and the
  * second one is not, which reads as a flicker nobody can explain. */

@@ -431,8 +431,17 @@ machines:
 ```
 
 `serve` puts a real certificate in front — a genuine one, for a `*.ts.net` name, with nothing
-to install on any device — which is also what unlocks an installable PWA and the clipboard
-API. Nothing is exposed to the internet: only devices on your tailnet can reach
+to install on any device — which is also what makes the board **installable as an app** and
+unlocks the clipboard API.
+
+If you would rather not: Chrome will treat a plain-http origin as secure if you list it in
+`chrome://flags/#unsafely-treat-insecure-origin-as-secure`, and then it offers the install
+too. That is a per-browser decision you make deliberately, which is the right shape for it.
+
+The service worker behind that is **network first, always**. The cache is a fallback and
+nothing else — the board opens instantly instead of waiting for a LAN round trip, and it
+never answers for `/api`, because the entire content of this page is which machine wants you
+*now* and a stale answer to that is worse than none. Nothing is exposed to the internet: only devices on your tailnet can reach
 it. **`tailscale funnel` does expose it publicly — don't.** Not for the board, and certainly
 not for an Argus, which is a shell.
 
