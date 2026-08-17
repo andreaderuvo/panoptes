@@ -346,26 +346,6 @@ async function ask(path) {
  *
  *  Only shown when the machine offers it: `may_stop_argus` on that machine's watcher entry.
  */
-/** Why there is no power button on this tile.
- *
- *  Granted, stopping an Argus lives on the tile itself — one tap, then a confirmation. Not
- *  granted, there is nothing on the tile at all, and absent is indistinguishable from not
- *  existing: the button had been built, tested and documented, and the first person to look
- *  for it could not tell whether the feature was missing or the permission was.
- *
- *  So the sheet carries the explanation, and says where the line goes — which is the actual
- *  question behind "where is the button".
- */
-function stopArgusRow(machine) {
-  if (machine.can_stop_argus) return null;
-  return el('div', { className: 'offer' }, [
-    el('span', { className: 'grow' }, [
-      el('span', { className: 'dim', textContent: t('Argus itself') }),
-      el('span', { className: 'meta', textContent: t('this machine has not allowed it — add may_stop_argus: true to its watcher') }),
-    ]),
-    el('button', { className: 'ghost', type: 'button', textContent: t('Stop Argus'), disabled: true }),
-  ]);
-}
 
 /** The second ask. A modal, because this is the one action on the board that is one-way. */
 function confirmStop(name) {
@@ -591,16 +571,18 @@ function machineSheet(machine, done) {
   };
   paintOffers();
 
-  // The heading belongs to whatever is in the section, and the Argus row counts — otherwise a
-  // machine offering nothing to start showed a lone disabled button under no heading at all.
-  const argusRow = machine.url ? stopArgusRow(machine) : null;
-  const canDo = offers.length || argusRow;
-
+  /* Stopping this Argus is not in here.
+   *
+   *  It lives on the tile, as the power icon, where the machine allows it. It was also
+   *  explained here — a greyed row saying which config line grants it — and that was one row
+   *  too many: a sheet about colours and a note listing a permission you have not granted are
+   *  two different conversations, and the second one never ends. The README says where the
+   *  line goes.
+   */
   put(sheet,
     el('h2', { textContent: name }),
-    canDo ? el('h3', { textContent: t('Start and stop') }) : null,
+    offers.length ? el('h3', { textContent: t('Start and stop') }) : null,
     offers.length ? doing : null,
-    argusRow,
     el('h3', { textContent: t('Colour') }),
     swatches,
     el('h3', { textContent: t('Tint strength — every tile') }),

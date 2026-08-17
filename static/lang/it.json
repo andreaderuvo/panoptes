@@ -2,7 +2,6 @@
  "code": "it",
  "name": "Italiano",
  "strings": {
-  "Argus itself": "Argus stesso",
   "Automatic": "Automatico",
   "Cancel": "Annulla",
   "Changes": "Modifiche",
@@ -22,7 +21,6 @@
   "Start": "Avvia",
   "Start and stop": "Avvia e ferma",
   "Stop": "Ferma",
-  "Stop Argus": "Ferma Argus",
   "Stop Argus on {name}?": "Fermare Argus su {name}?",
   "Stop it": "Fermalo",
   "That token was refused.": "Quel token è stato rifiutato.",
@@ -61,7 +59,6 @@
   "swept {when}": "guardate {when}",
   "that token may not ask this": "quel token non può chiedere questo",
   "the token was refused": "il token è stato rifiutato",
-  "this machine has not allowed it — add may_stop_argus: true to its watcher": "questa macchina non lo consente — aggiungi may_stop_argus: true al suo watcher",
   "tint times {n}": "tinta per {n}",
   "tint × {n}": "tinta × {n}",
   "token": "token",

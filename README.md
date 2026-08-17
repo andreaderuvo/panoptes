@@ -174,7 +174,9 @@ watchers:
 ```
 
 An ordinary board shows nothing in that section, which is correct: pressing these has to be
-granted on the machine, not assumed by the page.
+granted on the machine, not assumed by the page. **Stopping an Argus is the power icon on the
+tile itself**, and it appears only where that machine allows it — there is no greyed placeholder
+where it does not, so if you cannot see it, the line above is the one to add.
 
 **Stopping an Argus asks twice**, and says what it costs: every tmux session keeps running —
 Argus only watches them — but nothing here can start it again. That takes a shell on that

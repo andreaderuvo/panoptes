@@ -2,7 +2,6 @@
  "code": "fr",
  "name": "Français",
  "strings": {
-  "Argus itself": "Argus lui-même",
   "Automatic": "Automatique",
   "Cancel": "Annuler",
   "Changes": "Changements",
@@ -22,7 +21,6 @@
   "Start": "Démarrer",
   "Start and stop": "Démarrer et arrêter",
   "Stop": "Arrêter",
-  "Stop Argus": "Arrêter Argus",
   "Stop Argus on {name}?": "Arrêter Argus sur {name} ?",
   "Stop it": "Arrêter",
   "That token was refused.": "Ce jeton a été refusé.",
@@ -61,7 +59,6 @@
   "swept {when}": "consultées {when}",
   "that token may not ask this": "ce jeton n'a pas le droit de demander cela",
   "the token was refused": "le jeton a été refusé",
-  "this machine has not allowed it — add may_stop_argus: true to its watcher": "cette machine ne l’autorise pas — ajoutez may_stop_argus: true à son watcher",
   "tint times {n}": "teinte fois {n}",
   "tint × {n}": "teinte × {n}",
   "token": "jeton",

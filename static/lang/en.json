@@ -2,7 +2,6 @@
  "code": "en",
  "name": "English",
  "strings": {
-  "Argus itself": "Argus itself",
   "Automatic": "Automatic",
   "Cancel": "Cancel",
   "Changes": "Changes",
@@ -22,7 +21,6 @@
   "Start": "Start",
   "Start and stop": "Start and stop",
   "Stop": "Stop",
-  "Stop Argus": "Stop Argus",
   "Stop Argus on {name}?": "Stop Argus on {name}?",
   "Stop it": "Stop it",
   "That token was refused.": "That token was refused.",
@@ -61,7 +59,6 @@
   "swept {when}": "swept {when}",
   "that token may not ask this": "that token may not ask this",
   "the token was refused": "the token was refused",
-  "this machine has not allowed it — add may_stop_argus: true to its watcher": "this machine has not allowed it — add may_stop_argus: true to its watcher",
   "tint times {n}": "tint times {n}",
   "tint × {n}": "tint × {n}",
   "token": "token",
