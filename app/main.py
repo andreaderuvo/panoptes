@@ -24,11 +24,13 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
+from . import languages
 from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
 
 VERSION = "0.0.1"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+BUILTIN_LANG = STATIC_DIR / "lang"
 PROTECTED = ("/api",)
 
 
@@ -100,6 +102,8 @@ def create_app(cfg: Config) -> FastAPI:
     # two are believed for different reasons and go stale differently.
     app.state.told: dict[str, Seen] = {}
     app.state.swept = 0.0
+    # Where a reader's own catalogues live. Set from the config path so it moves with it.
+    app.state.lang = languages.lang_dir(getattr(cfg, "config_path", None) or default_path())
 
     @app.get("/api/board", summary="Every machine, as of the last sweep")
     async def board() -> dict:
@@ -109,7 +113,8 @@ def create_app(cfg: Config) -> FastAPI:
         painted = {m.name: m.colour for m in cfg.machines if m.colour}
         noted = {m.name: m.note for m in cfg.machines if m.note}
         machines = [app.state.seen[m.name].as_dict() if m.name in app.state.seen
-                    else {"name": m.name, "url": m.link, "ok": False, "why": "not asked yet"}
+                    else {"name": m.name, "url": m.link, "ok": False,
+                          "why": "not asked yet", "reason": "not-asked"}
                     for m in cfg.machines]
         for said in machines:
             if said["name"] in painted:
@@ -124,6 +129,7 @@ def create_app(cfg: Config) -> FastAPI:
             if now - told.at > cfg.forget_after:
                 said["ok"] = False
                 said["why"] = "has not called in"
+                said["reason"] = "silent"
             said["announced"] = True
             machines.append(said)
         # The ones wanting you first: a board is read top down and the top is the point.
@@ -173,12 +179,31 @@ def create_app(cfg: Config) -> FastAPI:
         )
         return {"heard": name}
 
+    @app.get("/api/languages", summary="The interface languages available")
+    async def list_languages() -> list[dict]:
+        """Whatever is in `static/lang/` plus whatever is in `<config>/lang/`, so adding a
+        language is dropping a JSON file in and nothing else."""
+        return languages.available(BUILTIN_LANG, app.state.lang)
+
+    @app.get("/api/language/{code}", summary="One language catalogue")
+    async def one_language(code: str) -> dict:
+        path = languages.locate(code, BUILTIN_LANG, app.state.lang)
+        entry = languages.read(path) if path else None
+        if not entry:
+            raise HTTPException(status_code=404, detail=f"no language called {code}")
+        return entry
+
     @app.get("/api/health", summary="Is the board itself up")
     async def health() -> dict:
         return {"ok": True, "version": VERSION, "machines": len(cfg.machines)}
 
     @app.get("/{requested:path}", include_in_schema=False)
     async def static_handler(requested: str) -> Response:
+        # Anything under /api that got this far is a route that does not exist. Handing it
+        # index.html means an API client reads 200 and a page of HTML where it asked a
+        # question — and a mistyped endpoint looks like it worked.
+        if requested == "api" or requested.startswith("api/"):
+            raise HTTPException(status_code=404, detail=f"no such endpoint: /{requested}")
         target = (STATIC_DIR / (requested or "index.html")).resolve()
         if not str(target).startswith(str(STATIC_DIR)) or not target.is_file():
             index = STATIC_DIR / "index.html"

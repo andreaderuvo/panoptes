@@ -178,6 +178,19 @@ main {
 .swatch { height: 46px; border-radius: .5rem; border: 1px solid var(--line); cursor: pointer; }
 .swatch.on { border-color: var(--bright); box-shadow: inset 0 0 0 2px var(--panel); }
 .swatch:active { transform: scale(.95); }
+.langlist { display: grid; gap: .35rem; }
+.langrow {
+  text-align: left; padding: .55rem .7rem;
+  border: 1px solid var(--line); border-radius: .4rem;
+  background: none; color: var(--text); font: inherit; cursor: pointer;
+}
+.langrow:hover { border-color: var(--accent); color: var(--bright); }
+.langrow.on { border-color: var(--accent); color: var(--bright); font-weight: 600; }
+
+/* Four buttons in a 52px bar is tight on a phone, and the sweep time is the least useful
+   thing in it — so that is what goes when there is no room. */
+@media (max-width: 27rem) { #swept { display: none; } }
+
 .sheetfoot { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
 .sheetfoot .ghost {
   height: 34px; padding: 0 .8rem; border: 1px solid var(--line); border-radius: .4rem;

@@ -165,6 +165,44 @@ So there are three answers, most personal first:
 The same ⋯ sets how strongly that colour tints the tile — five steps, kept as a multiplier
 so it means the same thing in both themes — and holds the note.
 
+## Translating it
+
+Four languages ship with the board — English, Italian, French, Spanish — and the globe in the
+header switches between them. Whatever your browser asks for is the default.
+
+Adding a fifth is **one flat JSON file whose keys are the English strings**. No gettext, no
+`.po`, no extraction step, no build, and nothing to register:
+
+```json
+{
+  "code": "de",
+  "name": "Deutsch",
+  "strings": {
+    "no sessions": "keine Sitzungen",
+    "up {age}": "läuft seit {age}",
+    "{n} machines": "{n} Maschinen"
+  }
+}
+```
+
+Drop it at `~/.config/panoptes/lang/de.json` — beside the config file — and it appears in the
+picker. Nothing to restart on the browser's side.
+
+- **A missing entry falls back to English**, so a translation is useful the day it is
+  started. There is no broken half.
+- **`{n}`, `{age}`, `{path}` and friends must survive into the translation.** They are filled
+  in at the point of use; one that is dropped leaves a hole in the sentence.
+- **A file you drop in overrides one that ships**, which is how a wording you disagree with
+  gets fixed without a fork.
+
+Copy `static/lang/en.json` to see every key — it lists all of them. To send one back, open a
+pull request with the file in `static/lang/`; a test checks that every catalogue covers every
+string and keeps its placeholders, so a stale one cannot pass unnoticed.
+
+[Argus](https://github.com/andreaderuvo/argus#translating-it) works the same way, file for
+file — and it can also import a catalogue from its Settings screen, which is the version of
+this that works from a phone.
+
 ## What it is not
 
 - **Not a way in.** There is no terminal, no file browser and no command here. If you want

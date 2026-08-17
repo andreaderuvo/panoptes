@@ -90,6 +90,9 @@ class Config:
     # How long an announced machine stays believed after it goes quiet. It says nothing
     # about how often it speaks, so this is a plain grace period rather than a multiple.
     forget_after: float = 45.0
+    # Where this was loaded from, so anything that lives beside the config — a reader's own
+    # language catalogues, for one — can be found without threading the path through.
+    config_path: Path | None = None
 
     @classmethod
     def from_dict(cls, raw: dict) -> Config:
@@ -147,6 +150,7 @@ class Config:
             raise ConfigError("`every` under a second would hammer the machines for nothing")
 
     def to_dict(self) -> dict:
+        # `config_path` is where this came from, not something to write into it.
         return {
             "listen": self.listen,
             "token": self.token,
@@ -176,9 +180,11 @@ class Config:
             except yaml.YAMLError as e:
                 raise ConfigError(f"parsing {path}: {e}") from e
             cfg = cls.from_dict(raw)
+            cfg.config_path = path
             cfg.validate()
             return cfg, False
 
         cfg = cls(token=generate_token())
+        cfg.config_path = path
         cfg.write_to(path)
         return cfg, True

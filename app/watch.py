@@ -22,7 +22,13 @@ class Seen:
     url: str
     at: float = 0.0
     ok: bool = False
+    # Two forms of the same fact. `why` is an English sentence, which is what an API reader
+    # or a log wants. `reason` is a stable code and `detail` is whatever varies, which is
+    # what a page in another language needs — a human sentence cannot be a translation key
+    # when a timeout value is spliced into the middle of it.
     why: str = ""
+    reason: str = ""
+    detail: str = ""
     overview: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
@@ -40,6 +46,8 @@ class Seen:
             "url": self.url,
             "ok": self.ok,
             "why": self.why,
+            "reason": self.reason,
+            "detail": self.detail,
             "at": self.at,
             "ago": round(time.time() - self.at, 1) if self.at else None,
         }
@@ -57,31 +65,38 @@ async def ask(client: httpx.AsyncClient, machine: Machine, timeout: float) -> Se
         )
     except httpx.TimeoutException:
         seen.why = f"no answer within {timeout:g}s"
+        seen.reason, seen.detail = "timeout", f"{timeout:g}"
         return seen
     except httpx.ConnectError:
         seen.why = "nothing listening there"
+        seen.reason = "refused"
         return seen
     except httpx.HTTPError as e:
         # Whatever else httpx has to say, said in words rather than in a class name.
         seen.why = f"unreachable ({type(e).__name__.replace('Error', '').lower()})"
+        seen.reason, seen.detail = "unreachable", type(e).__name__.replace("Error", "").lower()
         return seen
 
     seen.at = time.time()
     if answer.status_code == 401:
         seen.why = "the token was refused"
+        seen.reason = "bad-token"
         return seen
     if answer.status_code == 403:
         # Almost always the same mistake: a watcher token was expected and something
         # weaker or older was given, or the machine has not been told about this board.
         seen.why = "that token may not ask this"
+        seen.reason = "wrong-door"
         return seen
     if answer.status_code != 200:
         seen.why = f"answered {answer.status_code}"
+        seen.reason, seen.detail = "status", str(answer.status_code)
         return seen
     try:
         body = answer.json()
     except ValueError:
         seen.why = "answered something that was not an overview"
+        seen.reason = "not-overview"
         return seen
     if not isinstance(body, dict) or "sessions" not in body:
         seen.why = "answered something that was not an overview"

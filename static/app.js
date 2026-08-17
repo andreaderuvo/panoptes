@@ -19,6 +19,69 @@ if (fromBar) {
 }
 let token = localStorage.getItem(KEY) || '';
 
+/* ------------------------------------------------------------------- words
+ *
+ *  Argus's arrangement, kept identical on purpose: the English text is its own key. A
+ *  catalogue is then readable by whoever translates it, a missing entry falls back to
+ *  English instead of showing a code, and the source keeps saying what it means.
+ *
+ *  The catalogues are plain files under `static/lang/`, so adding a fifth language is
+ *  dropping a file in — no server change, no build step, nothing to register.
+ */
+let strings = {};
+let activeLang = 'en';
+
+function t(text, vars) {
+  let out = strings[text] || text;
+  if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
+  return out;
+}
+
+const LANG = 'panoptes.lang';
+
+/* The list comes from the server, not from a constant here.
+ *
+ *  Four catalogues ship with the board; a reader can drop a fifth into `<config>/lang/` and
+ *  it appears in the picker with nothing else done — no build, no registration, no code. A
+ *  hardcoded array here would have made that file loadable and invisible, which is worse
+ *  than not supporting it.
+ */
+let LANGUAGES = [{ code: 'en', name: 'English' }];
+
+async function knownLanguages() {
+  try {
+    const r = await fetch('/api/languages', { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) {
+      const said = await r.json();
+      if (Array.isArray(said) && said.length) LANGUAGES = said;
+    }
+  } catch { /* the built-in list is a fine answer */ }
+  return LANGUAGES;
+}
+
+/** Whatever the browser asks for, if we have it — and whatever you chose, over that. */
+function preferredLanguage() {
+  const mine = localStorage.getItem(LANG);
+  if (mine && LANGUAGES.some((l) => l.code === mine)) return mine;
+  for (const want of navigator.languages || [navigator.language || 'en']) {
+    const code = want.toLowerCase().split('-')[0];
+    if (LANGUAGES.some((l) => l.code === code)) return code;
+  }
+  return 'en';
+}
+
+async function loadLanguage(code) {
+  activeLang = code || 'en';
+  document.documentElement.lang = activeLang;
+  if (!code || code === 'en') { strings = {}; return; }
+  try {
+    const r = await fetch(`/api/language/${encodeURIComponent(code)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    strings = r.ok ? (await r.json()).strings || {} : {};
+  } catch { strings = {}; }
+}
+
 /* Dark, light, or whatever the machine says.
  *
  *  The page used to replay Argus's stored choice and stop there — which works only if you
@@ -62,8 +125,8 @@ function applyTheme() {
   const b = document.getElementById('theme');
   if (b) {
     b.dataset.mode = resolved;
-    b.title = `Theme: ${theme}`;
-    b.setAttribute('aria-label', `Theme: ${theme}`);
+    b.title = t('Theme: {mode}', { mode: t(theme) });
+    b.setAttribute('aria-label', t('Theme: {mode}', { mode: t(theme) }));
   }
 }
 
@@ -74,6 +137,53 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
 // The stored strength, before the first tile paints.
 window.addEventListener('DOMContentLoaded', () => applyWash(), { once: true });
 
+/** Four to choose from, and whatever the browser asked for as the default.
+ *
+ *  Its own sheet rather than a row in a machine's: the language is not a fact about a
+ *  machine, and this is the only board-wide setting that needs somewhere to live.
+ */
+function pickLanguage() {
+  const sheet = el('dialog', { className: 'sheet' });
+  const close = () => sheet.close();
+  const list = el('div', { className: 'langlist' });
+  for (const { code, name } of LANGUAGES) {
+    list.append(el('button', {
+      className: `langrow${code === activeLang ? ' on' : ''}`, type: 'button',
+      textContent: name,
+      onclick: async () => {
+        localStorage.setItem(LANG, code);
+        await loadLanguage(code);
+        close();
+        retitle();
+        draw();
+      },
+    }));
+  }
+  sheet.append(
+    el('h2', { textContent: t('Language') }),
+    list,
+    el('div', { className: 'sheetfoot' }, [
+      el('button', { className: 'ghost', type: 'button', textContent: t('Close'), onclick: close }),
+    ]),
+  );
+  document.body.append(sheet);
+  sheet.addEventListener('close', () => sheet.remove());
+  sheet.showModal();
+}
+
+/** The words baked into the page, said again in the language now in force. */
+function retitle() {
+  for (const [id, text] of [['lang', 'Language'], ['full', 'Full screen']]) {
+    const b = document.getElementById(id);
+    if (!b) continue;
+    b.title = t(text);
+    b.setAttribute('aria-label', t(text));
+  }
+  applyTheme();     // its own label carries the mode, so it has to be redone here
+}
+
+document.getElementById('lang')?.addEventListener('click', pickLanguage);
+
 document.getElementById('theme')?.addEventListener('click', () => {
   theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
   localStorage.setItem(THEME, theme);
@@ -81,6 +191,13 @@ document.getElementById('theme')?.addEventListener('click', () => {
 });
 
 applyTheme();
+
+/* The catalogue before the first paint. `draw()` is what puts words on the screen and it is
+ * kicked off below; this has to have landed by then or the first frame is English and the
+ * second one is not, which reads as a flicker nobody can explain. */
+const translated = knownLanguages()
+  .then(() => loadLanguage(preferredLanguage()))
+  .then(retitle);
 
 /** Somewhere to put the token when you did not arrive by link.
  *
@@ -91,10 +208,10 @@ applyTheme();
  */
 function askForToken(why) {
   const field = el('input', {
-    type: 'password', className: 'tokenbox', placeholder: 'token',
+    type: 'password', className: 'tokenbox', placeholder: t('token'),
     autocomplete: 'off', spellcheck: false,
   });
-  const go = el('button', { className: 'primary', textContent: 'Open' });
+  const go = el('button', { className: 'primary', textContent: t('Open') });
   const form = el('form', { className: 'askbox' }, [
     el('p', { textContent: why }),
     el('div', { className: 'askrow' }, [field, go]),
@@ -200,7 +317,7 @@ function machineSheet(machine, done) {
   MACHINE_COLOURS.forEach((c, i) => {
     const b = el('button', {
       className: `swatch${String(picks[name]) === String(i) ? ' on' : ''}`,
-      type: 'button', title: `colour ${i + 1}`, 'aria-label': `colour ${i + 1}`,
+      type: 'button', title: t('colour {n}', { n: i + 1 }), 'aria-label': t('colour {n}', { n: i + 1 }),
     });
     b.style.background = c;
     b.onclick = () => { picks = { ...picks, [name]: i }; savePicks(); close(); done(); };
@@ -216,8 +333,8 @@ function machineSheet(machine, done) {
     strengths.replaceChildren(...WASHES.map((mul, i) => {
       const b = el('button', {
         className: `wash${i === washStep ? ' on' : ''}`, type: 'button',
-        title: mul === 0 ? 'no tint' : `tint × ${mul}`,
-        'aria-label': mul === 0 ? 'no tint' : `tint times ${mul}`,
+        title: mul === 0 ? t('no tint') : t('tint × {n}', { n: mul }),
+        'aria-label': mul === 0 ? t('no tint') : t('tint times {n}', { n: mul }),
       });
       // Each button shows what it does, in the colour it would do it to.
       b.style.background = mul === 0 ? 'transparent'
@@ -238,7 +355,8 @@ function machineSheet(machine, done) {
    * be the thing that loses what you just wrote. */
   const noteBox = el('textarea', {
     className: 'notebox', rows: 2, maxLength: MAX_NOTE, spellcheck: false,
-    placeholder: machine.note ? `${machine.note} (from the config)` : 'what this machine is for',
+    placeholder: machine.note ? t('{note} (from the config)', { note: machine.note })
+      : t('what this machine is for'),
     value: notes[name] ?? '',
   });
   noteBox.addEventListener('input', () => {
@@ -252,19 +370,19 @@ function machineSheet(machine, done) {
 
   sheet.append(
     el('h2', { textContent: name }),
-    el('h3', { textContent: 'Colour' }),
+    el('h3', { textContent: t('Colour') }),
     swatches,
-    el('h3', { textContent: 'Tint strength — every tile' }),
+    el('h3', { textContent: t('Tint strength — every tile') }),
     strengths,
-    el('h3', { textContent: 'Note' }),
+    el('h3', { textContent: t('Note') }),
     noteBox,
     el('div', { className: 'sheetfoot' }, [
       el('button', {
-        className: 'ghost', type: 'button', textContent: 'Automatic',
-        title: 'back to the colour this name gives',
+        className: 'ghost', type: 'button', textContent: t('Automatic'),
+        title: t('back to the colour this name gives'),
         onclick: () => { const { [name]: _drop, ...rest } = picks; picks = rest; savePicks(); close(); done(); },
       }),
-      el('button', { className: 'ghost', type: 'button', textContent: 'Close', onclick: close }),
+      el('button', { className: 'ghost', type: 'button', textContent: t('Close'), onclick: close }),
     ]),
   );
   document.body.append(sheet);
@@ -302,10 +420,10 @@ const el = (tag, props = {}, kids = []) => {
 };
 
 const ago = (seconds) => {
-  if (seconds == null) return 'never';
-  if (seconds < 90) return `${Math.round(seconds)}s ago`;
-  if (seconds < 5400) return `${Math.round(seconds / 60)}m ago`;
-  return `${Math.round(seconds / 3600)}h ago`;
+  if (seconds == null) return t('never');
+  if (seconds < 90) return t('{n}s ago', { n: Math.round(seconds) });
+  if (seconds < 5400) return t('{n}m ago', { n: Math.round(seconds / 60) });
+  return t('{n}h ago', { n: Math.round(seconds / 3600) });
 };
 
 /** Copy, including over plain http where `navigator.clipboard` does not exist — which is
@@ -341,11 +459,38 @@ function toast(message, bad = false) {
 const upFor = (seconds) => {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
-  if (d) return `${d}d ${h}h`;
-  if (h) return `${h}h ${Math.floor((seconds % 3600) / 60)}m`;
+  // The unit letters are translated too: `d`, `h`, `m` and `s` are English abbreviations,
+  // and a catalogue that could not change them would look half-done in every language.
+  if (d) return t('{d}d {h}h', { d, h });
+  if (h) return t('{h}h {m}m', { h, m: Math.floor((seconds % 3600) / 60) });
   const m = Math.floor(seconds / 60);
-  return m ? `${m}m` : `${Math.max(0, Math.round(seconds))}s`;
+  return m ? t('{m}m', { m }) : t('{s}s', { s: Math.max(0, Math.round(seconds)) });
 };
+
+/** Why a machine is not answering, in the reader's language.
+ *
+ *  The server sends both a sentence and a code. The sentence is for an API reader and for a
+ *  log; the code is what can be translated, because half of these have a number spliced into
+ *  the middle and an English sentence cannot be a key when it is different every time.
+ */
+const REASONS = {
+  timeout: 'no answer within {detail}s',
+  refused: 'nothing listening there',
+  unreachable: 'unreachable ({detail})',
+  'bad-token': 'the token was refused',
+  'wrong-door': 'that token may not ask this',
+  status: 'answered {detail}',
+  'not-overview': 'answered something that was not an overview',
+  'not-asked': 'not asked yet',
+  silent: 'has not called in',
+};
+
+function whyNot(machine) {
+  const pattern = REASONS[machine.reason];
+  // An older board, or a reason nobody has coded yet: its English is better than nothing.
+  if (!pattern) return machine.why || t('unreachable');
+  return t(pattern, { detail: machine.detail || '' });
+}
 
 /** A session is worth looking at, or it is not. Only two states earn a colour: one of
  *  them wants you, and one of them has finished. Everything else is quiet on purpose. */
@@ -358,9 +503,9 @@ function sessionChip(session, url) {
     href: `${url}/#/term?s=${encodeURIComponent(session.name)}`,
     target: '_blank',
     rel: 'noopener noreferrer',
-    title: why === 'asking' ? 'waiting for you'
-      : why === 'done' ? 'finished'
-        : session.attached ? 'attached' : 'running',
+    title: why === 'asking' ? t('waiting for you')
+      : why === 'done' ? t('finished')
+        : session.attached ? t('attached') : t('running'),
   });
   chip.append(el('span', { className: 'dot' }));
   chip.append(el('span', { textContent: session.name }));
@@ -379,13 +524,13 @@ function card(machine) {
   ]);
 
   if (!machine.ok) {
-    head.append(el('span', { className: 'state bad', textContent: machine.why || 'unreachable' }));
+    head.append(el('span', { className: 'state bad', textContent: whyNot(machine) }));
   } else {
     const load = machine.load_pct ?? 0;
     head.append(el('span', {
       className: `state${load > 90 ? ' warn' : ''}`,
-      textContent: `load ${machine.load?.[0] ?? '?'}`,
-      title: `${machine.cores} cores · ${machine.load?.join(' ') || ''}`,
+      textContent: t('load {n}', { n: machine.load?.[0] ?? '?' }),
+      title: t('{n} cores', { n: machine.cores }) + ` · ${machine.load?.join(' ') || ''}`,
     }));
     if (machine.disk) {
       // A root like `/home/someone/work 18%` truncated to `/home/someone/w...`, losing the
@@ -396,14 +541,15 @@ function card(machine) {
       head.append(el('span', {
         className: `state${machine.disk.level === 'critical' ? ' bad' : machine.disk.level === 'high' ? ' warn' : ''}`,
         textContent: `${short} ${Math.round(machine.disk.pct)}%`,
-        title: `${path} — ${Math.round(machine.disk.pct)}% full`,
+        title: t('{path} — {pct}% full', { path, pct: Math.round(machine.disk.pct) }),
       }));
     }
   }
 
   head.append(el('button', {
     className: 'more', type: 'button',
-    title: `more about ${machine.name}`, 'aria-label': `more about ${machine.name}`,
+    title: t('more about {name}', { name: machine.name }),
+    'aria-label': t('more about {name}', { name: machine.name }),
     onclick: (e) => { e.stopPropagation(); machineSheet(machine, draw); },
   }, icon('more')));
 
@@ -414,7 +560,7 @@ function card(machine) {
   if (sessions.length) {
     for (const s of sessions) body.append(sessionChip(s, machine.url));
   } else if (machine.ok) {
-    body.append(el('span', { className: 'dim', textContent: 'no sessions' }));
+    body.append(el('span', { className: 'dim', textContent: t('no sessions') }));
   }
   // A machine that is down said "nothing listening there" in its header already; the
   // footer says when it last answered. Saying it a third time in the middle is noise.
@@ -428,13 +574,13 @@ function card(machine) {
    */
   const said = [];
   if (machine.ok && machine.uptime) {
-    said.push(`up ${upFor(machine.uptime)}`);
+    said.push(t('up {age}', { age: upFor(machine.uptime) }));
     if (machine.serving != null && machine.serving < machine.uptime * 0.95) {
-      said.push(`argus ${upFor(machine.serving)}`);
+      said.push(t('argus {age}', { age: upFor(machine.serving) }));
     }
-    said.push(`${Math.round(machine.memory_pct)}% memory`);
+    said.push(t('{pct}% memory', { pct: Math.round(machine.memory_pct) }));
   } else {
-    said.push(`last answered ${ago(machine.ago)}`);
+    said.push(t('last answered {when}', { when: ago(machine.ago) }));
   }
 
   const foot = el('div', { className: 'cardfoot dim' }, [
@@ -458,11 +604,11 @@ function card(machine) {
     foot.append(line);
     line.append(el('span', { className: 'addr', textContent: shown, title: machine.url }));
     line.append(el('button', {
-      className: 'copy', type: 'button', title: `copy ${machine.url}`, 'aria-label': `copy ${machine.url}`,
+      className: 'copy', type: 'button', title: t('copy {url}', { url: machine.url }), 'aria-label': t('copy {url}', { url: machine.url }),
       onclick: async (e) => {
         e.stopPropagation();     // the tile opens the machine; this button does not
         const ok = await copyText(machine.url);
-        toast(ok ? machine.url : 'could not reach the clipboard', !ok);
+        toast(ok ? machine.url : t('could not reach the clipboard'), !ok);
       },
     }, icon('copy')));
   }
@@ -502,19 +648,19 @@ async function draw() {
   try {
     const r = await fetch('/api/board', { headers: { Authorization: `Bearer ${token}` } });
     if (r.status === 401) {
-      askForToken(token ? 'That token was refused.' : 'This board needs its token.');
+      askForToken(token ? t('That token was refused.') : t('This board needs its token.'));
       return;
     }
     answer = await r.json();
   } catch {
-    swept.textContent = 'cannot reach the board itself';
+    swept.textContent = t('cannot reach the board itself');
     return;
   }
 
   const machines = answer.machines || [];
   board.replaceChildren(...machines.map(card));
   if (!machines.length) {
-    board.replaceChildren(el('p', { className: 'empty', textContent: 'No machines yet. Add them to the config and restart.' }));
+    board.replaceChildren(el('p', { className: 'empty', textContent: t('No machines yet. Add them to the config and restart.') }));
   }
   const waiting = machines.reduce((n, m) => n + (m.sessions || []).filter((s) => s.bell === 'asking').length, 0);
   /* Tiles are Argus instances, not machines, and on this board three of them are on one
@@ -524,10 +670,13 @@ async function draw() {
    */
   const hosts = new Set(machines.map((m) => m.hostname || m.name)).size;
   count.textContent = (hosts === machines.length
-    ? `${machines.length} machine${machines.length === 1 ? '' : 's'}`
-    : `${machines.length} argus on ${hosts} machine${hosts === 1 ? '' : 's'}`)
-    + (waiting ? ` · ${waiting} waiting for you` : '');
-  swept.textContent = answer.swept ? `swept ${ago((Date.now() / 1000) - answer.swept)}` : 'sweeping…';
+    ? t(machines.length === 1 ? '{n} machine' : '{n} machines', { n: machines.length })
+    : t(hosts === 1 ? '{n} argus on {h} machine' : '{n} argus on {h} machines',
+      { n: machines.length, h: hosts }))
+    + (waiting ? ' · ' + t('{n} waiting for you', { n: waiting }) : '');
+  swept.textContent = answer.swept
+    ? t('swept {when}', { when: ago((Date.now() / 1000) - answer.swept) })
+    : t('sweeping…');
   document.title = waiting ? `(${waiting}) Panoptes` : 'Panoptes';
 }
 
@@ -546,7 +695,9 @@ if (full && document.documentElement.requestFullscreen) {
   full.hidden = true;      // a browser that will not: no button rather than a dead one
 }
 
-draw();
+// After the catalogue, not before it: a first frame in English followed by a second one in
+// Italian is a flicker nobody can explain, and it happens on every load.
+translated.then(draw);
 // Slightly slower than the server's own sweep: asking faster than it learns is noise.
 setInterval(() => { if (!document.hidden) draw(); }, 4000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) draw(); });

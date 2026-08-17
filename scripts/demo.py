@@ -112,8 +112,10 @@ FLEET = [
     },
     {
         "name": "lighthouse",
-        "reach": "http://lighthouse.example:8090",
-        "hostname": "lighthouse",
+        # A second Argus on the same box as `tinderbox`, which is a thing people do and the
+        # only way the footer's "6 argus on 5 machines" appears in a picture at all.
+        "reach": "http://tinderbox.example:8091",
+        "hostname": "tinderbox",
         "uptime": 4 * HOUR,
         "serving": 4 * HOUR,
         "cores": 2,
