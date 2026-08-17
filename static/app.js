@@ -71,6 +71,21 @@ function colourFor(name) {
   return MACHINE_COLOURS[h % MACHINE_COLOURS.length];
 }
 
+const svgEl = (tag, props = {}, kids = []) => {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(props)) node.setAttribute(k, v);
+  for (const kid of [].concat(kids)) if (kid) node.append(kid);
+  return node;
+};
+
+/** Argus's copy glyph, drawn rather than typed: `⧉` is missing from the fonts a browser
+ *  falls back to, so the button was there, clickable, and invisible. */
+const copyIcon = () => svgEl('svg', { viewBox: '0 0 24 24', class: 'ico', 'aria-hidden': 'true' },
+  svgEl('path', {
+    d: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5', fill: 'none', stroke: 'currentColor',
+    'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+  }));
+
 const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);
   for (const kid of [].concat(kids)) if (kid) node.append(kid);
@@ -84,10 +99,43 @@ const ago = (seconds) => {
   return `${Math.round(seconds / 3600)}h ago`;
 };
 
+/** Copy, including over plain http where `navigator.clipboard` does not exist — which is
+ *  exactly how a board on a LAN is reached. Argus carries the same helper for the same
+ *  reason; a board that cannot hand you an address is a board you retype by hand.
+ */
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { /* the old way */ }
+  }
+  const ta = el('textarea', { value: text, readOnly: true });
+  Object.assign(ta.style, { position: 'fixed', top: '0', left: '-9999px' });
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
+}
+
+/** Said once, bottom centre, gone in a moment. There is nothing else on this page that
+ *  needs to say anything, so it does not need to be more than this. */
+function toast(message, bad = false) {
+  const note = el('div', { className: `toast${bad ? ' bad' : ''}`, textContent: message });
+  document.body.append(note);
+  setTimeout(() => note.remove(), 2200);
+}
+
+/** How long something has been up. Coarse at the top and fine at the bottom, because the
+ *  question changes with the answer: a machine up for months is "66d", an Argus started
+ *  four minutes ago is "4m" — and rounding that to hours said "0h", which reads as a
+ *  number that failed to arrive rather than as a fresh start. */
 const upFor = (seconds) => {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);
-  return d ? `${d}d ${h}h` : `${h}h`;
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${Math.floor((seconds % 3600) / 60)}m`;
+  const m = Math.floor(seconds / 60);
+  return m ? `${m}m` : `${Math.max(0, Math.round(seconds))}s`;
 };
 
 /** A session is worth looking at, or it is not. Only two states earn a colour: one of
@@ -113,7 +161,7 @@ function sessionChip(session, url) {
 
 function card(machine) {
   const head = el('div', { className: 'cardhead' }, [
-    el('span', { className: 'mark', 'aria-hidden': 'true' }),
+    el('span', { className: 'mdot', 'aria-hidden': 'true' }),
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
@@ -131,9 +179,15 @@ function card(machine) {
       title: `${machine.cores} cores · ${machine.load?.join(' ') || ''}`,
     }));
     if (machine.disk) {
+      // `/home/someone 18%` truncated to `/home/someone/w...`, losing the number. The
+      // tail of a path is the part that identifies it, so a long one keeps its tail and
+      // says the whole thing on hover.
+      const path = machine.disk.path;
+      const short = path.length > 14 ? `…/${path.split('/').filter(Boolean).pop() || path}` : path;
       head.append(el('span', {
         className: `state${machine.disk.level === 'critical' ? ' bad' : machine.disk.level === 'high' ? ' warn' : ''}`,
-        textContent: `${machine.disk.path} ${Math.round(machine.disk.pct)}%`,
+        textContent: `${short} ${Math.round(machine.disk.pct)}%`,
+        title: `${path} — ${Math.round(machine.disk.pct)}% full`,
       }));
     }
   }
@@ -148,13 +202,53 @@ function card(machine) {
   // A machine that is down said "nothing listening there" in its header already; the
   // footer says when it last answered. Saying it a third time in the middle is noise.
 
+  /* Two uptimes, because they answer different questions and only one of them is about
+   * Argus. The machine's is what you want most of the time; the process's is what tells
+   * you this one restarted an hour ago, and it is the only one that differs when several
+   * Argus instances are on the same box — which is exactly when a board looks wrong.
+   * Shown only when it is meaningfully shorter: on a machine that has been up as long as
+   * the Argus on it, saying it twice is noise.
+   */
+  const said = [];
+  if (machine.ok && machine.uptime) {
+    said.push(`up ${upFor(machine.uptime)}`);
+    if (machine.serving != null && machine.serving < machine.uptime * 0.95) {
+      said.push(`argus ${upFor(machine.serving)}`);
+    }
+    said.push(`${Math.round(machine.memory_pct)}% memory`);
+  } else {
+    said.push(`last answered ${ago(machine.ago)}`);
+  }
+
   const foot = el('div', { className: 'cardfoot dim' }, [
-    el('span', {
-      textContent: machine.ok && machine.uptime
-        ? `up ${upFor(machine.uptime)} · ${Math.round(machine.memory_pct)}% memory`
-        : `last answered ${ago(machine.ago)}`,
-    }),
+    el('div', { className: 'readings', textContent: said.join(' · ') }),
   ]);
+
+  /* The address, and a button that copies it.
+   *
+   *  Clicking the tile opens the machine here, in this browser — which is no use when the
+   *  address is what you want: to paste into a terminal, into a note, into a message to
+   *  somebody else, or into the other browser you are actually working in. The board knows
+   *  it and nowhere else does, so retyping `http://lab-one:8071` from a screen is the
+   *  alternative. No token is in it: the board has never held that machine's real one.
+   */
+  if (machine.url) {
+    const shown = machine.url.replace(/^https?:\/\//, '');
+    // Its own row, address and button together. Sharing a line with the readings meant the
+    // button wrapped away from the address it belongs to as soon as a name got long — and
+    // which line it landed on depended on the machine, so no two tiles agreed.
+    const line = el('div', { className: 'addrline' });
+    foot.append(line);
+    line.append(el('span', { className: 'addr', textContent: shown, title: machine.url }));
+    line.append(el('button', {
+      className: 'copy', type: 'button', title: `copy ${machine.url}`, 'aria-label': `copy ${machine.url}`,
+      onclick: async (e) => {
+        e.stopPropagation();     // the tile opens the machine; this button does not
+        const ok = await copyText(machine.url);
+        toast(ok ? machine.url : 'could not reach the clipboard', !ok);
+      },
+    }, copyIcon()));
+  }
 
   const wants = sessions.some((s) => s.bell === 'asking');
   const card = el('article', {
@@ -174,7 +268,7 @@ function card(machine) {
    */
   if (machine.url) {
     const go = () => window.open(machine.url, '_blank', 'noopener');
-    card.addEventListener('click', (e) => { if (!e.target.closest('a')) go(); });
+    card.addEventListener('click', (e) => { if (!e.target.closest('a, button')) go(); });
     card.tabIndex = 0;
     card.setAttribute('role', 'link');
     card.addEventListener('keydown', (e) => {

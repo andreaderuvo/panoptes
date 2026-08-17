@@ -51,7 +51,7 @@ header {
   align-items: center;
   gap: .5rem;
   height: var(--bar);
-  padding: 0 .35rem;
+  padding: 0 calc(var(--gutter) - .65rem);
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 2;
@@ -72,13 +72,18 @@ h1 { margin: 0; font-size: 1.05rem; color: var(--bright); letter-spacing: -.01em
 .dim { color: var(--dim); font-size: .8rem; }
 .grow { flex: 1; }
 
+/* One gutter, kept in a variable so the header, the board and the footer cannot drift
+   apart again: they had three different left edges, which is invisible until you look. */
+:root { --gutter: 1rem; }
+
 main {
-  padding-left: 1rem;
-  padding-right: 1rem;
   display: grid;
   gap: .8rem;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
-  padding: 1rem .2rem;
+  /* Tiles are as tall as they need to be, not as tall as the tallest one beside them. A
+     machine with two sessions next to one with thirteen used to be mostly empty tile. */
+  align-items: start;
+  padding: 1rem var(--gutter);
 }
 
 .card {
@@ -91,33 +96,54 @@ main {
   border-left: 3px solid var(--line);
   border-radius: .6rem;
   padding: .8rem .9rem;
+  display: flex; flex-direction: column;
+  transition: border-color .12s ease, transform .12s ease;
 }
 /* One machine wants you. That is the only thing this board exists to say, so it is the
    only thing the edge is allowed to say. */
 .card.wants { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent); }
 .card.cold { opacity: .72; }
 .card.open { cursor: pointer; }
-.card.open:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.card.open:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  /* The whole tile is a link, so it should say so under the pointer without moving the
+     row: a pixel of lift, not a shadow that reflows the grid. */
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .card.open:hover { transform: none; }
+}
 .card.open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.cardhead { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+.cardhead {
+  display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem;
+  /* The readings drop to a second line rather than squeezing the name. `lab-two`
+     broke across two lines and made its tile taller than every other one in the row,
+     which reads as that machine being different when it is only longer. */
+  flex-wrap: wrap;
+}
 /* The machine's colour said once, at full strength, where the eye already is. The wash
    alone is too faint to tell two machines apart at a glance; this is what does it. */
-.mark {
+.mdot {
   flex: none; width: .55rem; height: .55rem; border-radius: 50%;
   background: var(--mc, var(--dim));
 }
-.name { color: var(--bright); font-weight: 600; text-decoration: none; }
+.name { color: var(--bright); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .name:hover { color: var(--accent); }
 .state {
-  flex: none; font-size: .72rem; color: var(--dim);
+  flex: none; font-size: .72rem; color: var(--dim); line-height: 1.45;
   border: 1px solid var(--line); border-radius: .3rem; padding: .05rem .35rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .state.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
 .state.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
 
-.chips { display: flex; flex-wrap: wrap; gap: .35rem; min-height: 1.9rem; align-items: center; }
+.chips {
+  display: flex; flex-wrap: wrap; gap: .35rem; align-items: center;
+  min-height: 1.9rem; margin-bottom: .6rem;
+}
 .chip {
   display: inline-flex; align-items: center; gap: .35rem;
   padding: .2rem .5rem; border: 1px solid var(--line); border-radius: .4rem;
@@ -129,11 +155,48 @@ main {
 .chip-asking .dot { background: var(--accent); }
 .chip-done .dot { background: var(--warn); }
 
-.cardfoot { margin-top: .6rem; font-size: .74rem; }
-.empty { color: var(--dim); padding: 2rem .2rem; }
+.cardfoot {
+  /* Pinned to the bottom of the tile, with a hairline over it. Floating halfway up a tile
+     that had been stretched to match its neighbour was the thing that read as unfinished.
+     Two rows, always: one line that wraps only sometimes puts the copy button in a
+     different place on every tile, which is worse than a second row on all of them. */
+  margin-top: auto; padding-top: .55rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  font-size: .74rem;
+  display: grid; gap: .1rem;
+}
+.readings { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.addrline { display: flex; align-items: center; gap: .15rem; min-width: 0; }
+.addr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Beside the address, not at the far edge of the tile: the button belongs to the thing
+     it copies, and 250px of gap made it look like it belonged to nothing. A long address
+     gives up its own end rather than the tile's width. */
+  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.copy {
+  flex: none; width: 1.5rem; height: 1.5rem; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: .3rem;
+  background: none; color: var(--dim); cursor: pointer;
+}
+.copy .ico { width: 14px; height: 14px; }
+.copy:hover { color: var(--bright); border-color: var(--line); background: var(--bg); }
+.copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Said once, and gone. */
+.toast {
+  position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%);
+  max-width: min(92vw, 40rem); z-index: 40;
+  padding: .5rem .8rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: var(--panel); color: var(--text); font-size: .82rem;
+  overflow-wrap: anywhere; box-shadow: 0 6px 24px rgb(0 0 0 / .35);
+}
+.toast.bad { border-color: var(--bad); color: var(--bad); }
+.empty { grid-column: 1 / -1; color: var(--dim); padding: 2rem 0; }
 
 /* The way in, for when you did not arrive by link. */
-.askbox { grid-column: 1 / -1; max-width: 26rem; padding: 1.4rem .2rem; color: var(--dim); }
+.askbox { grid-column: 1 / -1; max-width: 26rem; padding: 1.4rem 0; color: var(--dim); }
 .askrow { display: flex; gap: .5rem; margin-top: .6rem; }
 input.tokenbox {
   flex: 1; min-width: 0; height: 38px; padding: 0 .7rem;
@@ -147,9 +210,9 @@ button.primary {
 }
 
 footer {
-  margin: 0 1rem;
   display: flex; gap: .8rem; align-items: center;
-  border-top: 1px solid var(--line); padding: .8rem .2rem;
+  border-top: 1px solid var(--line);
+  margin: 0 var(--gutter); padding: .8rem 0;
 }
 footer a { color: var(--dim); margin-left: auto; }
 footer a:hover { color: var(--accent); }
