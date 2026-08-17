@@ -316,12 +316,26 @@ main {
   padding-left: .5rem;
 }
 
+/* Written in the place it will appear: the box takes the note's spot on the tile. */
 .notebox {
-  width: 100%; resize: vertical; min-height: 3.4rem;
-  padding: .45rem .55rem; border: 1px solid var(--line); border-radius: .4rem;
-  background: var(--bg); color: var(--text); font: inherit; font-size: .85rem;
+  width: 100%; resize: vertical; min-height: 3rem;
+  margin: 0 0 .55rem;
+  padding: .4rem .5rem; border: 1px solid var(--accent); border-radius: .4rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .8rem;
 }
-.notebox:focus { border-color: var(--accent); outline: none; }
+.notebox:focus { outline: none; }
+
+/* The pencil, beside the ⋯. Quiet like it, and it says what it is on hover. */
+.pencil {
+  flex: none; width: 1.6rem; height: 1.6rem;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: .35rem;
+  background: none; color: var(--dim); cursor: pointer;
+  transition: color .12s ease, border-color .12s ease;
+}
+.pencil .ico { width: 15px; height: 15px; }
+.pencil:hover { color: var(--bright); border-color: var(--line); background: var(--bg); }
+.pencil:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .chips {
   display: flex; flex-wrap: wrap; gap: .35rem; align-items: center;

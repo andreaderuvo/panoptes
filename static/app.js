@@ -464,6 +464,43 @@ async function journalSheet() {
   sheet.showModal();
 }
 
+/** Write the note, on the tile, without leaving it.
+ *
+ *  Saved as it is typed: a note is one line about a machine, not a form, so a Save button
+ *  would be a second thing to remember for no gain. Escape and clicking away both just stop
+ *  editing — neither can lose what was written, because it was never held anywhere else.
+ */
+function editNote(machine, card, done) {
+  if (card.querySelector('.notebox')) return card.querySelector('.notebox').focus();
+  const name = machine.name;
+  const box = el('textarea', {
+    className: 'notebox', rows: 2, maxLength: MAX_NOTE, spellcheck: false,
+    placeholder: machine.note ? t('{note} (from the config)', { note: machine.note })
+      : t('what this machine is for'),
+    value: notes[name] ?? '',
+  });
+  box.addEventListener('input', () => {
+    const written = box.value.slice(0, MAX_NOTE);
+    if (written.trim()) notes = { ...notes, [name]: written };
+    else { const { [name]: _drop, ...rest } = notes; notes = rest; }   // empty means the config's, or none
+    saveNotes();
+  });
+  // The tile is a link and the card is listening for clicks; typing in here is neither.
+  for (const noisy of ['click', 'keydown', 'pointerdown']) {
+    box.addEventListener(noisy, (e) => e.stopPropagation());
+  }
+  const finish = () => { box.remove(); done(); };
+  box.addEventListener('blur', finish);
+  box.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); box.blur(); } });
+
+  // Where the note itself sits, so it is edited in the place it will appear.
+  const existing = card.querySelector('.note');
+  if (existing) existing.replaceWith(box);
+  else card.querySelector('.cardhead').after(box);
+  box.focus();
+  box.select();
+}
+
 /** What a tile can be asked, gathered in one place.
  *
  *  The colour picker lived on the machine's dot, which is .55rem across and, however many
@@ -512,24 +549,6 @@ function machineSheet(machine, done) {
     }));
   };
   paintStrengths();
-
-  /* Saved as it is typed. A note is one line about a machine, not a form, so a Save button
-   * would be a second thing to remember for no gain — and Escape closing the sheet must not
-   * be the thing that loses what you just wrote. */
-  const noteBox = el('textarea', {
-    className: 'notebox', rows: 2, maxLength: MAX_NOTE, spellcheck: false,
-    placeholder: machine.note ? t('{note} (from the config)', { note: machine.note })
-      : t('what this machine is for'),
-    value: notes[name] ?? '',
-  });
-  noteBox.addEventListener('input', () => {
-    const written = noteBox.value.slice(0, MAX_NOTE);
-    if (written.trim()) notes = { ...notes, [name]: written };
-    else { const { [name]: _drop, ...rest } = notes; notes = rest; }   // empty means "use the config's, or none"
-    saveNotes();
-  });
-  // Enter belongs to the text, not to the dialog.
-  noteBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.stopPropagation(); });
 
   /* What this machine will let you start and stop.
    *
@@ -587,8 +606,6 @@ function machineSheet(machine, done) {
     swatches,
     el('h3', { textContent: t('Tint strength — every tile') }),
     strengths,
-    el('h3', { textContent: t('Note') }),
-    noteBox,
     el('div', { className: 'sheetfoot' }, [
       el('button', {
         className: 'ghost', type: 'button', textContent: t('Automatic'),
@@ -618,6 +635,7 @@ const svgEl = (tag, props = {}, kids = []) => {
 const GLYPHS = {
   copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+  pencil: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
   // The universal power glyph, which needs no label in any language.
   power: 'M12 3.5v7.5M7.4 6.4a7 7 0 1 0 9.2 0',
 };
@@ -839,6 +857,20 @@ function card(machine) {
   const acts = el('span', { className: 'acts' });
   head.append(acts);
 
+  /* The note, written on the tile.
+   *
+   *  It lived in the sheet that sets the colour, which put two unrelated jobs behind one
+   *  button: changing how a machine looks and writing down what it is for are not the same
+   *  errand, and the second is the one you do in a hurry. A pencil beside the name opens a box
+   *  in place, on the tile the note belongs to.
+   */
+  acts.append(el('button', {
+    className: 'pencil', type: 'button',
+    title: t('a note about {name}', { name: machine.name }),
+    'aria-label': t('a note about {name}', { name: machine.name }),
+    onclick: (e) => { e.stopPropagation(); editNote(machine, card, draw); },
+  }, icon('pencil')));
+
   if (machine.can_stop_argus) {
     acts.append(el('button', {
       className: 'kill', type: 'button',
@@ -959,6 +991,11 @@ function card(machine) {
 }
 
 async function draw() {
+  // Not while somebody is writing a note. The board rebuilds every tile from scratch, so a
+  // sweep landing mid-sentence would take the box away with the cursor still in it — every
+  // four seconds, which is to say always.
+  if (document.querySelector('.notebox')) return;
+
   let answer;
   try {
     const r = await fetch('/api/board', { headers: { Authorization: `Bearer ${token}` } });

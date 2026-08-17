@@ -206,8 +206,14 @@ So there are three answers, most personal first:
 2. **A colour in the config**, the same for everyone who opens the board.
 3. **The hash of the name**, which is what an unconfigured board shows.
 
-The same ⋯ sets how strongly that colour tints the tile — five steps, kept as a multiplier
-so it means the same thing in both themes — and holds the note.
+The same ⋯ sets how strongly that colour tints the tile — five steps, kept as a multiplier so
+it means the same thing in both themes.
+
+**The note is the pencil, on the tile.** Not in that sheet: changing how a machine looks and
+writing down what it is for are different errands, and the second is the one you do in a hurry.
+It saves as you type, in the place the note will appear, and the board stops refreshing while
+you write — otherwise a sweep four seconds later would take the box away with the cursor still
+in it.
 
 ## Translating it
 
