@@ -27,6 +27,7 @@ header {
   border-bottom: 1px solid var(--line);
   position: sticky; top: 0; background: var(--bg); z-index: 2;
 }
+header .mark { flex: none; border-radius: .35rem; }
 h1 { margin: 0; font-size: 1.15rem; color: var(--bright); letter-spacing: -.01em; }
 .dim { color: var(--dim); font-size: .8rem; }
 .grow { flex: 1; }
