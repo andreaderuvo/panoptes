@@ -41,10 +41,21 @@ class Machine:
     name: str
     url: str
     token: str
+    # Where a *browser* should go, which is not always where this board asks.
+    #
+    # A board running on the same machine as an Argus polls it over loopback, because that
+    # is the shortest and safest way to ask. Putting that address on the card sends the
+    # reader to their own laptop. The two are different questions and they get different
+    # answers; unset, they are the same.
+    reach: str = ""
 
     @property
     def overview(self) -> str:
         return f"{self.url.rstrip('/')}/api/overview"
+
+    @property
+    def link(self) -> str:
+        return (self.reach or self.url).rstrip("/")
 
 
 @dataclass
@@ -77,7 +88,8 @@ class Config:
             token = str(entry.get("token") or "").strip()
             if not (name and url and token):
                 raise ConfigError("a machine needs a name, a url and a token")
-            machines.append(Machine(name=name, url=url, token=token))
+            machines.append(Machine(name=name, url=url, token=token,
+                                    reach=str(entry.get("reach") or "").strip()))
         return cls(
             token=str(raw.get("token", "")),
             machines=machines,
@@ -120,7 +132,10 @@ class Config:
             "timeout": self.timeout,
             "registration_token": self.registration_token,
             "forget_after": self.forget_after,
-            "machines": [{"name": m.name, "url": m.url, "token": m.token} for m in self.machines],
+            "machines": [
+                {"name": m.name, "url": m.url, "token": m.token, **({"reach": m.reach} if m.reach else {})}
+                for m in self.machines
+            ],
         }
 
     def write_to(self, path: Path) -> None:

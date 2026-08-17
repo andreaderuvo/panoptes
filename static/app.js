@@ -132,6 +132,21 @@ async function draw() {
   document.title = waiting ? `(${waiting}) Panoptes` : 'Panoptes';
 }
 
+/* Full screen, for the board left on a second monitor. Nothing else on the screen is the
+ *  point of a board: it is read from across a room. */
+const full = document.getElementById('full');
+if (full && document.documentElement.requestFullscreen) {
+  full.onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  };
+  document.addEventListener('fullscreenchange', () => {
+    full.title = document.fullscreenElement ? 'Leave full screen' : 'Full screen';
+  });
+} else if (full) {
+  full.hidden = true;      // a browser that will not: no button rather than a dead one
+}
+
 draw();
 // Slightly slower than the server's own sweep: asking faster than it learns is noise.
 setInterval(() => { if (!document.hidden) draw(); }, 4000);

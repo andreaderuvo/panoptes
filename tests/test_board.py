@@ -140,3 +140,18 @@ def test_the_list_you_wrote_by_hand_wins():
     client = TestClient(create_app(cfg))
     said = client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
     assert said.status_code == 409
+
+
+def test_the_link_is_not_always_the_address_the_board_asks():
+    """A board beside an Argus polls it over loopback, which on a card would send the
+    reader to their own laptop."""
+    cfg = Config(token=BOARD, machines=[
+        Machine(name="here", url="http://127.0.0.1:8123", token=WEAK, reach="http://10.0.0.5:8123")])
+    client = TestClient(create_app(cfg))
+    machine = client.get(f"/api/board?token={BOARD}").json()["machines"][0]
+    assert machine["url"] == "http://10.0.0.5:8123"
+
+    # Unset, the two are the same and nothing changes.
+    plain = Config(token=BOARD, machines=[Machine(name="there", url="http://box:8090", token=WEAK)])
+    other = TestClient(create_app(plain))
+    assert other.get(f"/api/board?token={BOARD}").json()["machines"][0]["url"] == "http://box:8090"

@@ -45,7 +45,7 @@ class Seen:
 async def ask(client: httpx.AsyncClient, machine: Machine, timeout: float) -> Seen:
     """One machine. Never raises: a board is a thing you look at when something is wrong,
     so the failure has to arrive as information rather than as an exception."""
-    seen = Seen(name=machine.name, url=machine.url)
+    seen = Seen(name=machine.name, url=machine.link)
     try:
         answer = await client.get(
             machine.overview,
@@ -104,7 +104,7 @@ async def round_of(cfg: Config, previous: dict[str, Seen] | None = None) -> dict
         if isinstance(answer, Seen):
             fresh = answer
         else:
-            fresh = Seen(name=machine.name, url=machine.url, why="asking it went wrong here")
+            fresh = Seen(name=machine.name, url=machine.link, why="asking it went wrong here")
         # A machine that has gone quiet keeps whatever it last told us, so the board can
         # still say what it was running an hour ago.
         was = (previous or {}).get(machine.name)

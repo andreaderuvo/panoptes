@@ -28,6 +28,16 @@ header {
   position: sticky; top: 0; background: var(--bg); z-index: 2;
 }
 header .mark { flex: none; border-radius: .35rem; }
+/* The two things a board wants in its corner: somewhere to read about it, and a way to
+   fill the screen — a wall display showing this has no business showing a browser too. */
+header .icon {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; align-self: center;
+  border: 1px solid transparent; border-radius: .35rem;
+  background: none; color: var(--dim); cursor: pointer; text-decoration: none;
+}
+header .icon:hover { color: var(--bright); background: var(--line); }
+header .icon svg { width: 17px; height: 17px; }
 h1 { margin: 0; font-size: 1.15rem; color: var(--bright); letter-spacing: -.01em; }
 .dim { color: var(--dim); font-size: .8rem; }
 .grow { flex: 1; }
