@@ -317,45 +317,24 @@ async function ask(path) {
  *
  *  Only shown when the machine offers it: `may_stop_argus` on that machine's watcher entry.
  */
-function stopArgusRow(machine, close, done) {
-  /* Shown even when it is not allowed, and disabled with the reason.
-   *
-   *  Absent, it was indistinguishable from not existing: the button had been built, tested
-   *  and documented, and the first person to look for it could not tell whether the feature
-   *  was missing or the permission was. One line of explanation turns a mystery into an
-   *  instruction — and it says where the line goes, since that is the actual question.
-   */
-  if (!machine.can_stop_argus) {
-    return el('div', { className: 'offer' }, [
-      el('span', { className: 'grow' }, [
-        el('span', { className: 'dim', textContent: t('Argus itself') }),
-        el('span', { className: 'meta', textContent: t('this machine has not allowed it — add may_stop_argus: true to its watcher') }),
-      ]),
-      el('button', { className: 'ghost', type: 'button', textContent: t('Stop Argus'), disabled: true }),
-    ]);
-  }
-  const press = el('button', {
-    className: 'ghost danger', type: 'button', textContent: t('Stop Argus'),
-    onclick: async () => {
-      const sure = await confirmStop(machine.name);
-      if (!sure) return;
-      press.disabled = true;
-      try {
-        await ask(`/api/do/${encodeURIComponent(machine.name)}/argus/stop`);
-        toast(t('{name} is stopping — its sessions carry on', { name: machine.name }));
-      } catch (e) {
-        toast(e.message, true);
-      }
-      close();
-      done();
-    },
-  });
+/** Why there is no power button on this tile.
+ *
+ *  Granted, stopping an Argus lives on the tile itself — one tap, then a confirmation. Not
+ *  granted, there is nothing on the tile at all, and absent is indistinguishable from not
+ *  existing: the button had been built, tested and documented, and the first person to look
+ *  for it could not tell whether the feature was missing or the permission was.
+ *
+ *  So the sheet carries the explanation, and says where the line goes — which is the actual
+ *  question behind "where is the button".
+ */
+function stopArgusRow(machine) {
+  if (machine.can_stop_argus) return null;
   return el('div', { className: 'offer' }, [
     el('span', { className: 'grow' }, [
-      el('span', { textContent: t('Argus itself') }),
-      el('span', { className: 'meta', textContent: t('only a shell on that machine can start it again') }),
+      el('span', { className: 'dim', textContent: t('Argus itself') }),
+      el('span', { className: 'meta', textContent: t('this machine has not allowed it — add may_stop_argus: true to its watcher') }),
     ]),
-    press,
+    el('button', { className: 'ghost', type: 'button', textContent: t('Stop Argus'), disabled: true }),
   ]);
 }
 
@@ -376,6 +355,10 @@ function confirmStop(name) {
     sheet.addEventListener('close', () => sheet.remove());
     sheet.addEventListener('cancel', () => resolve(false));
     sheet.showModal();
+    // Cancel, not Stop. A dialog that opens with the destructive button focused turns a
+    // stray Enter — or the second half of a double-click on the power icon — into a
+    // stopped machine.
+    sheet.querySelector('.sheetfoot .ghost')?.focus();
   });
 }
 
@@ -488,7 +471,7 @@ function machineSheet(machine, done) {
 
   // The heading belongs to whatever is in the section, and the Argus row counts — otherwise a
   // machine offering nothing to start showed a lone disabled button under no heading at all.
-  const argusRow = machine.url ? stopArgusRow(machine, close, done) : null;
+  const argusRow = machine.url ? stopArgusRow(machine) : null;
   const canDo = offers.length || argusRow;
 
   put(sheet,
@@ -531,6 +514,8 @@ const svgEl = (tag, props = {}, kids = []) => {
 const GLYPHS = {
   copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+  // The universal power glyph, which needs no label in any language.
+  power: 'M12 3.5v7.5M7.4 6.4a7 7 0 1 0 9.2 0',
 };
 
 const icon = (name) => svgEl('svg', { viewBox: '0 0 24 24', class: 'ico', 'aria-hidden': 'true' },
@@ -661,11 +646,21 @@ function card(machine) {
     el('span', { className: 'grow' }),
   ]);
 
+  /* The readings wrap; the buttons do not.
+   *
+   *  With the whole header wrapping, a long name and two readings pushed the buttons onto a
+   *  line of their own — and which tile that happened to depended on the name, so no two
+   *  agreed. They live in a box that cannot break instead, and only the readings inside their
+   *  own box are allowed to.
+   */
+  const readouts = el('span', { className: 'readouts' });
+  head.append(readouts);
+
   if (!machine.ok) {
-    head.append(el('span', { className: 'state bad', textContent: whyNot(machine) }));
+    readouts.append(el('span', { className: 'state bad', textContent: whyNot(machine) }));
   } else {
     const load = machine.load_pct ?? 0;
-    head.append(el('span', {
+    readouts.append(el('span', {
       className: `state${load > 90 ? ' warn' : ''}`,
       textContent: t('load {n}', { n: machine.load?.[0] ?? '?' }),
       title: t('{n} cores', { n: machine.cores }) + ` · ${machine.load?.join(' ') || ''}`,
@@ -676,7 +671,7 @@ function card(machine) {
       // identifies it, so a long one keeps its tail and says the whole thing on hover.
       const path = machine.disk.path;
       const short = path.length > 14 ? `…/${path.split('/').filter(Boolean).pop() || path}` : path;
-      head.append(el('span', {
+      readouts.append(el('span', {
         className: `state${machine.disk.level === 'critical' ? ' bad' : machine.disk.level === 'high' ? ' warn' : ''}`,
         textContent: `${short} ${Math.round(machine.disk.pct)}%`,
         title: t('{path} — {pct}% full', { path, pct: Math.round(machine.disk.pct) }),
@@ -684,7 +679,43 @@ function card(machine) {
     }
   }
 
-  head.append(el('button', {
+  /* Stopping this Argus, where the machine allows it.
+   *
+   *  It was three levels down — ⋯, then a sheet, then a confirmation — which is a lot of
+   *  looking for the one action you reach for when a machine is misbehaving and you are not
+   *  in front of it. On the tile it is one tap away and still two taps to fire, because the
+   *  confirmation stays: this is the only thing on the board that cannot be undone from here.
+   *
+   *  An icon rather than a word: it is the power symbol, it needs no translating, and a
+   *  button reading "Stop" beside a tile that is itself a link is a mis-tap waiting to
+   *  happen on a phone. Absent entirely unless that machine granted it, so an ordinary board
+   *  carries no red buttons at all.
+   */
+  const acts = el('span', { className: 'acts' });
+  head.append(acts);
+
+  if (machine.can_stop_argus) {
+    acts.append(el('button', {
+      className: 'kill', type: 'button',
+      title: t('Stop Argus on {name}?', { name: machine.name }),
+      'aria-label': t('Stop Argus on {name}?', { name: machine.name }),
+      onclick: async (e) => {
+        e.stopPropagation();
+        if (!await confirmStop(machine.name)) return;
+        try {
+          const said = await ask(`/api/do/${encodeURIComponent(machine.name)}/argus/stop`);
+          toast(said.queued
+            ? t('{name} will be told next time it calls in', { name: machine.name })
+            : t('{name} is stopping — its sessions carry on', { name: machine.name }));
+        } catch (err) {
+          toast(err.message, true);
+        }
+        draw();
+      },
+    }, icon('power')));
+  }
+
+  acts.append(el('button', {
     className: 'more', type: 'button',
     title: t('more about {name}', { name: machine.name }),
     'aria-label': t('more about {name}', { name: machine.name }),

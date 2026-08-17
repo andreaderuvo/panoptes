@@ -124,11 +124,18 @@ main {
 
 .cardhead {
   display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem;
-  /* The readings drop to a second line rather than squeezing the name. A fourteen-character
-     name broke across two lines and made its tile taller than every other one in the row,
-     which reads as that machine being different when it is only longer. */
-  flex-wrap: wrap;
+  /* This line does not break. What breaks is inside `.readouts`, so the buttons stay at the
+     end where they are on every other tile — they used to be pushed onto a second line by a
+     long name, and which tile that happened to depended on the name. */
+  flex-wrap: nowrap;
 }
+/* The readings, which may take two lines if the name is long. */
+.readouts {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  justify-content: flex-end; min-width: 0;
+}
+/* What you can press. Never breaks, never shrinks. */
+.acts { flex: none; display: inline-flex; align-items: center; gap: .1rem; }
 /* The machine's colour said once, at full strength, where the eye already is. The wash
    alone is too faint to tell two machines apart at a glance; this is what does it. */
 /* A mark, not a control. It was a control for a while and nobody could find it: .55rem is
@@ -137,6 +144,19 @@ main {
   flex: none; width: .55rem; height: .55rem; border-radius: 50%;
   background: var(--mc, var(--dim));
 }
+
+/* Turning this Argus off, on the tile, where the machine allows it. Quiet until you are on
+   it — it is not the reason anyone is reading the board — and unmistakable once you are. */
+.kill {
+  flex: none; width: 1.6rem; height: 1.6rem; margin: -.2rem 0;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: .35rem;
+  background: none; color: var(--dim); cursor: pointer;
+  transition: color .12s ease, border-color .12s ease;
+}
+.kill .ico { width: 16px; height: 16px; }
+.kill:hover { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.kill:focus-visible { outline: 2px solid var(--bad); outline-offset: 1px; }
 
 /* Everything a tile offers beyond opening it. Quiet until the pointer is on the tile, so a
    board of twelve machines is not a board of twelve buttons. */
@@ -158,7 +178,10 @@ main {
 /* Argus's picker, the same palette in the same four-by-two grid. */
 .sheet {
   border: 1px solid var(--line); border-radius: .7rem;
-  background: var(--panel); color: var(--text); padding: 1rem;
+  background: var(--panel); color: var(--text); padding: 1rem 1.1rem 1.1rem;
+  /* A measure. Without one the confirmation stretched to the width of the page and its
+     sentence became a single 1100px line, which is the least readable a warning can be. */
+  max-width: min(92vw, 30rem);
   min-width: min(92vw, 20rem);
 }
 .sheet::backdrop { background: rgb(0 0 0 / .5); }
@@ -201,7 +224,7 @@ main {
 /* The one-way one, said in the colour everything else on this board uses for trouble. */
 .ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
 .ghost.danger:hover { color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-.sheet .hint { margin: .2rem 0 0; font-size: .82rem; color: var(--dim); }
+.sheet .hint { margin: .5rem 0 0; font-size: .84rem; line-height: 1.45; color: var(--text); }
 
 .langlist { display: grid; gap: .35rem; }
 .langrow {
@@ -222,6 +245,22 @@ main {
   background: none; color: var(--text); font: inherit; cursor: pointer;
 }
 .sheetfoot .ghost:hover { border-color: var(--accent); color: var(--bright); }
+/* The one-way choice, said in the colour this board uses for trouble.
+ *
+ *  `.ghost.danger` alone lost to `.sheetfoot .ghost` — same specificity, and that rule comes
+ *  later in the file — so the button that stops a machine looked exactly like Cancel. On a
+ *  confirmation there is no worse bug: the two answers have to be told apart at a glance.
+ */
+.sheetfoot .ghost.danger {
+  color: var(--bad); border-color: color-mix(in srgb, var(--bad) 55%, var(--line));
+  font-weight: 600;
+}
+.sheetfoot .ghost.danger:hover {
+  color: var(--bad); border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+}
+/* Cancel is the calm one, and the one the keyboard lands on first. */
+.sheetfoot .ghost:first-child { color: var(--text); }
 .name { color: var(--bright); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .name:hover { color: var(--accent); }
 .state {
