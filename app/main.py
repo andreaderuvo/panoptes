@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 
 import httpx
 
-from . import languages
+from . import journal, languages
 from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
 
@@ -61,11 +61,13 @@ class TokenGate:
             return await self.app(scope, receive, send)
         given = presented_token(scope)
         if given is not None and hmac.compare_digest(given.encode(), self.token.encode()):
+            scope["panoptes_board"] = True
             return await self.app(scope, receive, send)
         # Announcing is not looking. A machine's key opens one door and cannot read the
         # board; the board's token cannot be used to invent machines.
         if (path == "/api/report" and given is not None and self.registration
                 and hmac.compare_digest(given.encode(), self.registration.encode())):
+            scope["panoptes_machine"] = True
             return await self.app(scope, receive, send)
         response = PlainTextResponse("missing or invalid token", status_code=401)
         await response(scope, receive, send)
@@ -85,19 +87,73 @@ async def sweep(app: FastAPI) -> None:
         await asyncio.sleep(cfg.every)
 
 
+class JournalMiddleware:
+    """Record what changed and what was refused. Raw ASGI, to see the status without buffering
+    the body, and installed outside the gate so it can name the key that was used."""
+
+    CHANGES = ("POST", "PUT", "PATCH", "DELETE")
+
+    def __init__(self, app, store_of):
+        self.app = app
+        self.store_of = store_of
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope.get("path", "").startswith("/api"):
+            return await self.app(scope, receive, send)
+
+        started = time.monotonic()
+        status = 0
+
+        async def watched(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, watched)
+        finally:
+            # A machine calling in every few seconds is the board's own heartbeat, not an event:
+            # recording each one would bury the three things worth seeing under thousands of
+            # identical lines. A *refused* announcement is another matter entirely.
+            routine = scope.get("path") == "/api/report" and not journal.refused(status)
+            worth_it = not routine and (
+                journal.refused(status) or scope.get("method") in self.CHANGES
+            )
+            store = self.store_of()
+            if worth_it and store:
+                journal.record(store, scope, status, int((time.monotonic() - started) * 1000))
+
+
 def create_app(cfg: Config) -> FastAPI:
+    async def flushing() -> None:
+        """Write out collapsed refusals even when nothing else happens.
+
+        `record` flushes them on the way past, which covers a board somebody is using. A board
+        nobody is using is exactly where a run of refusals matters most, and there is no next
+        request to ride on — the same lesson Argus learned, and the same fix.
+        """
+        while True:
+            await asyncio.sleep(journal.QUIET_FOR)
+            try:
+                journal.flush_swallowed(app.state.journal)
+            except Exception:
+                pass
+
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
         # One client for the passing-through, kept open: a new connection per button press is
         # a handshake nobody needs, and the sweeper has its own for the same reason.
         app.state.http = httpx.AsyncClient(follow_redirects=False)
+        app.state.flusher = asyncio.create_task(flushing())
         app.state.sweeper = asyncio.create_task(sweep(app))
         try:
             yield
         finally:
-            app.state.sweeper.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await app.state.sweeper
+            for task in (app.state.sweeper, app.state.flusher):
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
             await app.state.http.aclose()
 
     app = FastAPI(title="Panoptes", version=VERSION, docs_url=None, redoc_url=None,
@@ -112,6 +168,8 @@ def create_app(cfg: Config) -> FastAPI:
     # memory on purpose: a board that restarts should forget what it was about to say rather
     # than replay it at a machine that has moved on.
     app.state.queued: dict[str, list[dict]] = {}
+    app.state.journal = cfg.journal_store or (languages.lang_dir(
+        cfg.config_path or default_path()).parent / "journal.jsonl")
     # Replaced by the lifespan's own, and present before it so a TestClient — which does run
     # the lifespan — and a bare create_app both work.
     app.state.http = httpx.AsyncClient(follow_redirects=False)
@@ -246,6 +304,18 @@ def create_app(cfg: Config) -> FastAPI:
                                 detail=f"{name}: {answer.text[:200]}")
         return {"machine": name, **answer.json()}
 
+    @app.get("/api/journal", summary="What was done on this board, and what was refused")
+    async def read_journal(limit: int = 200) -> dict:
+        """Most recent first. Whoever can read the board can read this: unlike Argus there are
+        no per-device tokens here, so there is no weaker key to keep it from."""
+        kept = journal.read(app.state.journal, max(1, min(int(limit), 500)))
+        return {
+            "entries": kept,
+            # Attempts, not lines: a collapsed burst is one line and many knocks.
+            "refused": sum(e.get("times", 1) for e in kept if e.get("refused")),
+            "since": kept[-1]["at"] if kept else None,
+        }
+
     @app.get("/api/languages", summary="The interface languages available")
     async def list_languages() -> list[dict]:
         """Whatever is in `static/lang/` plus whatever is in `<config>/lang/`, so adding a
@@ -283,6 +353,9 @@ def create_app(cfg: Config) -> FastAPI:
         return FileResponse(target, headers={"cache-control": "no-cache"})
 
     app.add_middleware(TokenGate, token=cfg.token, registration=cfg.registration_token)
+    # Added after the gate so it wraps outside it — Starlette applies these in reverse — and
+    # therefore sees which key was accepted.
+    app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
     return app
 
 
@@ -337,6 +410,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.listen:
         cfg.listen = args.listen
+    cfg.journal_store = journal.default_store(cfg.config_path or args.config)
+
     host, _, port = cfg.listen.rpartition(":")
     print(f"\n  panoptes {VERSION} · {len(cfg.machines)} machine(s)"
           f"{' · accepts announcements' if cfg.registration_token else ''}")

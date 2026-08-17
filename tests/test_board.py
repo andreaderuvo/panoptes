@@ -309,3 +309,82 @@ def test_a_reply_carries_nothing_when_nothing_was_asked():
     said = client.post("/api/report", json=OVERVIEW,
                        headers={"Authorization": f"Bearer {REGISTER}"}).json()
     assert said["do"] == []
+
+
+# ------------------------------------------------------------------------------- the journal
+
+def journalled(tmp_path, **extra):
+    from app import journal as J
+    cfg = Config(token=BOARD, registration_token=REGISTER, **extra)
+    cfg.journal_store = tmp_path / "journal.jsonl"
+    app = create_app(cfg)
+    app.state.journal = cfg.journal_store
+    J._last_refusal.clear()
+    return TestClient(app), cfg.journal_store
+
+
+def test_a_machine_calling_in_is_not_an_event(tmp_path):
+    """Every few seconds, from every machine. Recording it would bury the three things worth
+    seeing under thousands of identical lines — which is the file nobody opens."""
+    from app import journal as J
+
+    client, store = journalled(tmp_path)
+    for _ in range(5):
+        client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    assert J.read(store) == []
+
+
+def test_a_refused_announcement_is_an_event(tmp_path):
+    """The registration key is the weakest one here, and a board full of machines that do not
+    exist is the thing it could do. Refusals are the only warning of that."""
+    from app import journal as J
+
+    client, store = journalled(tmp_path, machines=[
+        Machine(name="gpu2", url="http://real:8090", token=WEAK)])
+    # A name that is configured cannot be announced over — refused, and worth seeing.
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    kept = J.read(store)
+    assert kept and kept[0]["status"] == 409 and kept[0]["refused"] is True
+
+
+def test_who_pressed_stop_is_recorded_here(tmp_path):
+    """The machine records that "panoptes" did it, which is the truth from where it stands and
+    is not enough: the board is the only thing that knows the click came from a browser."""
+    from app import journal as J
+
+    client, store = journalled(tmp_path)
+    client.post("/api/report", json=OVERVIEW, headers={"Authorization": f"Bearer {REGISTER}"})
+    client.post(f"/api/do/gpu2/argus/stop?token={BOARD}")
+
+    said = [e for e in J.read(store) if "/api/do/" in e["did"]]
+    assert said and said[0]["who"] == "the board token"
+    assert "argus/stop" in said[0]["did"]
+
+
+def test_someone_trying_to_get_into_the_board_is_recorded(tmp_path):
+    """This page lists every machine you own. A run of 401s against it deserves seeing as much
+    as one against a machine."""
+    from app import journal as J
+
+    client, store = journalled(tmp_path)
+    client.get("/api/board?token=nonsense")
+    kept = J.read(store)
+    assert kept and kept[0]["refused"] is True and kept[0]["who"] == "someone"
+
+
+def test_a_burst_is_collapsed_and_still_counted(tmp_path):
+    from app import journal as J
+    import time as clock
+
+    client, store = journalled(tmp_path)
+    for _ in range(9):
+        client.get("/api/board?token=nonsense")
+    J.flush_swallowed(store, clock.time() + J.QUIET_FOR + 1)
+    assert sum(e.get("times", 1) for e in J.read(store) if e.get("refused")) == 9
+
+
+def test_the_journal_needs_the_board_token(tmp_path):
+    client, _ = journalled(tmp_path)
+    assert client.get("/api/journal").status_code == 401
+    assert client.get(f"/api/journal?token={REGISTER}").status_code == 401
+    assert client.get(f"/api/journal?token={BOARD}").status_code == 200

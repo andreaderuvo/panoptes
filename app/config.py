@@ -103,6 +103,8 @@ class Config:
     # `*.ts.net` name with nothing to install on any device.
     tls_cert: Path | None = None
     tls_key: Path | None = None
+    # Where the record of what was done here is appended, beside the config.
+    journal_store: Path | None = None
 
     def tls(self) -> tuple[Path, Path] | None:
         if self.tls_cert and self.tls_key:

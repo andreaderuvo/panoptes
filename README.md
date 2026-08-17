@@ -245,6 +245,29 @@ string and keeps its placeholders, so a stale one cannot pass unnoticed.
 file — and it can also import a catalogue from its Settings screen, which is the version of
 this that works from a phone.
 
+## The journal
+
+`journal`, in the footer. Three things happen only here, and nothing else would ever see them:
+
+- **Who pressed stop.** The board sends the instruction and the machine records that
+  "panoptes" did it — true from where the machine stands, and not enough. The board is the only
+  thing that knows which browser the click came from.
+- **Who tried to get into the board.** This page lists every machine you own, what is running
+  on each and how full its disks are. A run of 401s against that deserves seeing as much as one
+  against a machine.
+- **Who invented a machine.** The registration token is the weakest key here; anything holding
+  it can announce a machine that does not exist. It cannot overwrite one you configured — that
+  is refused — and now the refusal is written down.
+
+A machine calling in every few seconds is the board's heartbeat, not an event, so it is not
+recorded; a *refused* announcement is. Refusals from one address are collapsed with the count
+kept, because a board that rotates its own history away while being knocked on is worse than
+none. Filters for *Everything*, *Refused* and *Changes*, and a box matching the address, the key
+and the action at once.
+
+Unlike [Argus](https://github.com/andreaderuvo/argus#the-journal), whoever can read the board
+can read this: there are no per-device tokens here, so there is no weaker key to keep it from.
+
 ## What it is not
 
 - **Not a way in.** There is no terminal, no file browser and no command here. If you want

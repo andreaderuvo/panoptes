@@ -377,5 +377,46 @@ footer {
   border-top: 1px solid var(--line);
   margin: 0 var(--gutter); padding: .8rem 0;
 }
+footer #journal {
+  border: 0; background: none; padding: 0; font: inherit; font-size: .8rem;
+  color: var(--dim); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+footer #journal:hover { color: var(--accent); }
 footer a { color: var(--dim); margin-left: auto; }
+
+/* The journal, in a sheet. Wider than the others: it is columns, not a question. */
+.sheet.wide { max-width: min(96vw, 60rem); }
+.jbar { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: .6rem 0 .4rem; }
+.jbar .chip {
+  padding: .2rem .6rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: none; color: var(--text); font: inherit; font-size: .8rem; cursor: pointer;
+}
+.jbar .chip.on { border-color: var(--accent); color: var(--accent); }
+input.jfind {
+  flex: 1; min-width: 8rem; height: 30px; padding: 0 .5rem;
+  border: 1px solid var(--line); border-radius: .4rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .82rem;
+}
+input.jfind:focus { border-color: var(--accent); outline: none; }
+.jrows { max-height: 55vh; overflow: auto; }
+.jrow {
+  display: flex; align-items: baseline; gap: .5rem;
+  padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .8rem;
+}
+.jrow:last-child { border-bottom: 0; }
+.jdid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--bright); }
+.jrow .meta { display: block; font-size: .72rem; color: var(--dim); }
+.jrow .jfrom {
+  flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .72rem; color: var(--dim);
+}
+.jrow .jwhen { flex: none; font-size: .72rem; color: var(--dim); }
+.jrow.refused { background: color-mix(in srgb, var(--bad) 8%, transparent); }
+.jrow.refused .jdid { color: var(--bad); }
+.sheet .notice {
+  margin: .4rem 0 0; padding: .45rem .6rem; font-size: .82rem;
+  border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line)); border-radius: .4rem;
+  background: color-mix(in srgb, var(--bad) 8%, transparent); color: var(--text);
+}
+@media (max-width: 40rem) { .jrow .jwhen { display: none; } }
 footer a:hover { color: var(--accent); }

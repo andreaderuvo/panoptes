@@ -199,6 +199,8 @@ function pickLanguage() {
 
 /** The words baked into the page, said again in the language now in force. */
 function retitle() {
+  const j = document.getElementById('journal');
+  if (j) j.textContent = t('journal');
   for (const [id, text] of [['lang', 'Language'], ['full', 'Full screen']]) {
     const b = document.getElementById(id);
     if (!b) continue;
@@ -209,6 +211,7 @@ function retitle() {
 }
 
 document.getElementById('lang')?.addEventListener('click', pickLanguage);
+document.getElementById('journal')?.addEventListener('click', journalSheet);
 
 document.getElementById('theme')?.addEventListener('click', () => {
   theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
@@ -386,6 +389,99 @@ function confirmStop(name) {
     // stopped machine.
     sheet.querySelector('.sheetfoot .ghost')?.focus();
   });
+}
+
+/** What was done on this board, and what was refused.
+ *
+ *  In a sheet from the footer rather than a button in the header: it is board-wide and rarely
+ *  opened, which is what the footer is for, and the header already carries four things that a
+ *  phone has to fit on one line.
+ */
+async function journalSheet() {
+  const sheet = el('dialog', { className: 'sheet wide' });
+  const close = () => sheet.close();
+  const rows = el('div', { className: 'jrows' });
+  const count = el('span', { className: 'dim' });
+
+  let said;
+  try {
+    const r = await fetch('/api/journal?limit=300', { headers: { Authorization: `Bearer ${token}` } });
+    said = await r.json();
+  } catch {
+    said = { entries: [], refused: 0 };
+  }
+  const entries = said.entries || [];
+  const when = (at) => new Date(at * 1000).toLocaleString();
+
+  let only = 'all';
+  let needle = '';
+  const shows = (one) => {
+    if (only === 'refused' && !one.refused) return false;
+    if (only === 'changes' && one.refused) return false;
+    if (!needle) return true;
+    return [one.who, one.did, one.what, one.from, one.via, one.status]
+      .join(' ').toLowerCase().includes(needle);
+  };
+
+  const paint = () => {
+    const showing = entries.filter(shows);
+    rows.replaceChildren(...showing.map((one) => el('div', { className: `jrow${one.refused ? ' refused' : ''}` }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'jdid', textContent: one.did || '?' }),
+        el('span', { className: 'meta', textContent: [
+          one.who,
+          one.what,
+          one.times > 1 ? t('{n} times', { n: one.times }) : '',
+        ].filter(Boolean).join(' · ') }),
+      ]),
+      el('span', { className: 'jfrom', textContent: one.via ? `${one.from} → ${one.via}` : (one.from || '') }),
+      el('span', { className: `state${one.refused ? ' bad' : ''}`, textContent: String(one.status) }),
+      el('span', { className: 'jwhen', textContent: when(one.at) }),
+    ])));
+    if (!showing.length) rows.append(el('p', { className: 'hint', textContent: t('Nothing matches that.') }));
+    count.textContent = showing.length === entries.length
+      ? t('{n} entries', { n: entries.length })
+      : t('{n} of {total}', { n: showing.length, total: entries.length });
+  };
+
+  const pick = (id, label) => el('button', {
+    className: `chip${only === id ? ' on' : ''}`, type: 'button', textContent: label,
+    onclick: (e) => {
+      only = id;
+      for (const other of bar.querySelectorAll('.chip')) other.classList.toggle('on', other === e.currentTarget);
+      paint();
+    },
+  });
+  const bar = el('div', { className: 'jbar' }, [
+    pick('all', t('Everything')),
+    pick('refused', t('Refused')),
+    pick('changes', t('Changes')),
+    el('input', {
+      type: 'search', className: 'jfind', placeholder: t('an address, a key, an action…'),
+      spellcheck: false,
+      oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paint(); },
+    }),
+    count,
+  ]);
+
+  put(sheet,
+    el('h2', { textContent: t('Journal') }),
+    el('p', { className: 'hint', textContent: entries.length
+      ? t('Everything that changed something, and everything that was refused. A machine calling in is not recorded; a refused one is.')
+      : t('Nothing recorded yet.') }),
+    said.refused
+      ? el('p', { className: 'notice', textContent: t('{n} refused attempts. A run of them from an address you do not recognise is the thing to look at.', { n: said.refused }) })
+      : null,
+    bar,
+    rows,
+    el('div', { className: 'sheetfoot' }, [
+      el('button', { className: 'ghost', type: 'button', textContent: t('Close'), onclick: close }),
+    ]),
+  );
+  paint();
+  document.body.append(sheet);
+  sheet.addEventListener('close', () => sheet.remove());
+  sheet.showModal();
 }
 
 /** What a tile can be asked, gathered in one place.
