@@ -54,6 +54,23 @@ function askForToken(why) {
   field.focus();
 }
 
+/* A colour per machine, derived from its name.
+ *
+ *  Argus's own palette and Argus's own arithmetic, so a machine wears the same colour here
+ *  as its sessions wear there, and nobody configures anything: the same name gives the
+ *  same colour on every device, for ever, which a stored preference cannot promise.
+ */
+const MACHINE_COLOURS = [
+  '#e5786d', '#d6a25f', '#9fd66f', '#5fc9a3',
+  '#6fc7d6', '#7aa2d6', '#b98fd6', '#d66fa8',
+];
+
+function colourFor(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return MACHINE_COLOURS[h % MACHINE_COLOURS.length];
+}
+
 const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);
   for (const kid of [].concat(kids)) if (kid) node.append(kid);
@@ -77,9 +94,11 @@ const upFor = (seconds) => {
  *  them wants you, and one of them has finished. Everything else is quiet on purpose. */
 function sessionChip(session, url) {
   const why = session.bell;
+  // Straight to that terminal, not merely to the machine it is on. The card already does
+  // the machine; a chip that did the same thing would be a second button for one job.
   const chip = el('a', {
     className: `chip${why ? ` chip-${why}` : ''}`,
-    href: url,
+    href: `${url}/#/term?s=${encodeURIComponent(session.name)}`,
     target: '_blank',
     rel: 'noopener noreferrer',
     title: why === 'asking' ? 'waiting for you'
@@ -94,6 +113,7 @@ function sessionChip(session, url) {
 
 function card(machine) {
   const head = el('div', { className: 'cardhead' }, [
+    el('span', { className: 'mark', 'aria-hidden': 'true' }),
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
       textContent: machine.name,
@@ -137,8 +157,33 @@ function card(machine) {
   ]);
 
   const wants = sessions.some((s) => s.bell === 'asking');
-  return el('article', { className: `card${wants ? ' wants' : ''}${machine.ok ? '' : ' cold'}` },
-    [head, body, foot]);
+  const card = el('article', {
+    className: `card${wants ? ' wants' : ''}${machine.ok ? '' : ' cold'}${machine.url ? ' open' : ''}`,
+  }, [head, body, foot]);
+  // Down the left edge, which is also where "this one wants you" is said — so a machine
+  // asking for you overrides its own colour rather than competing with it.
+  card.style.setProperty('--mc', colourFor(machine.name));
+
+  /* The whole tile opens the machine.
+   *
+   *  A card is one thing and reads as one thing, so it should behave as one: a small
+   *  target inside a large obviously-clickable rectangle is a target people miss. The
+   *  chips and the name keep their own destinations — a click that landed on one of them
+   *  was meant for it — and the name stays a real link so middle-click and copy-address
+   *  still work.
+   */
+  if (machine.url) {
+    const go = () => window.open(machine.url, '_blank', 'noopener');
+    card.addEventListener('click', (e) => { if (!e.target.closest('a')) go(); });
+    card.tabIndex = 0;
+    card.setAttribute('role', 'link');
+    card.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      go();
+    });
+  }
+  return card;
 }
 
 async function draw() {

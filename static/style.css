@@ -10,6 +10,10 @@
   --bright: #e6e9ef;
   --accent: #8fd6a0;
   --on-accent: #0b0e14;
+  /* How much of a machine's colour reaches its tile. Dark needs more of it than light does
+     to be seen at all — a fixed percentage is legible in one theme and invisible in the
+     other, which is the whole reason this is a variable and not a number. */
+  --wash: 12%;
   --warn: #d6b98f;
   --bad: #e0736c;
   color-scheme: dark;
@@ -26,6 +30,7 @@
   --bright: #10141b;
   --accent: #17805a;
   --on-accent: #ffffff;
+  --wash: 7%;
   --warn: #8a6d3b;
   --bad: #b53d31;
   color-scheme: light;
@@ -77,18 +82,31 @@ main {
 }
 
 .card {
-  background: var(--panel);
+  /* A machine's colour washes the tile; it never touches the left edge. Two channels, two
+     meanings: the area says which machine this is, the edge says whether it wants you.
+     Sharing one edge between them was measurably wrong — the palette holds greens a shade
+     off the accent, so `lab-demo` and "asking for you" drew the same bar. */
+  background: color-mix(in srgb, var(--mc, transparent) var(--wash), var(--panel));
   border: 1px solid var(--line);
   border-left: 3px solid var(--line);
   border-radius: .6rem;
   padding: .8rem .9rem;
 }
 /* One machine wants you. That is the only thing this board exists to say, so it is the
-   only thing that gets a colour down the side. */
-.card.wants { border-left-color: var(--accent); }
+   only thing the edge is allowed to say. */
+.card.wants { border-left-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent); }
 .card.cold { opacity: .72; }
+.card.open { cursor: pointer; }
+.card.open:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.card.open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .cardhead { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+/* The machine's colour said once, at full strength, where the eye already is. The wash
+   alone is too faint to tell two machines apart at a glance; this is what does it. */
+.mark {
+  flex: none; width: .55rem; height: .55rem; border-radius: 50%;
+  background: var(--mc, var(--dim));
+}
 .name { color: var(--bright); font-weight: 600; text-decoration: none; }
 .name:hover { color: var(--accent); }
 .state {

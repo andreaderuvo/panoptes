@@ -27,7 +27,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from .config import Config, ConfigError, default_path
 from .watch import Seen, round_of
 
-VERSION = "0.1.0"
+VERSION = "0.0.1"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 PROTECTED = ("/api",)
 
@@ -187,9 +187,43 @@ def create_app(cfg: Config) -> FastAPI:
     return app
 
 
+def addresses() -> list[str]:
+    """The addresses a phone could actually dial. Loopback and Docker bridges are not
+    among them, however truthfully the kernel lists them."""
+    found = []
+    try:
+        import subprocess
+        out = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=2).stdout
+        for ip in out.split():
+            if ip.startswith("127.") or ":" in ip:
+                continue
+            # Docker's own range is 172.16-31, and listing one of its bridges as somewhere
+            # to point a phone is worse than listing nothing.
+            bits = ip.split(".")
+            if bits[0] == "172" and 16 <= int(bits[1]) <= 31:
+                continue
+            found.append(ip)
+    except Exception:
+        pass
+    return found or ["127.0.0.1"]
+
+
+def print_qr(url: str) -> None:
+    """A code you can photograph. The board needs its token before it shows anything, and
+    typing sixty-four hex characters into a phone is not a thing anybody should do."""
+    try:
+        import segno
+    except ImportError:
+        print("  (pip install segno for a scannable code)")
+        return
+    segno.make(url, error="m").terminal(compact=True)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="panoptes", description=__doc__)
     parser.add_argument("--config", type=Path, default=default_path())
+    parser.add_argument("--qr", action="store_true",
+                        help="print a code you can photograph, for each address it answers on")
     args = parser.parse_args(argv)
 
     try:
@@ -199,10 +233,24 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     host, _, port = cfg.listen.rpartition(":")
-    print(f"\n  panoptes {VERSION} · {len(cfg.machines)} machine(s)")
+    print(f"\n  panoptes {VERSION} · {len(cfg.machines)} machine(s)"
+          f"{' · accepts announcements' if cfg.registration_token else ''}")
     if fresh:
         print(f"  wrote {args.config} — add your machines to it")
-    print(f"  open    http://{host or '127.0.0.1'}:{port}/?token={cfg.token}\n")
+
+    # Every address it can actually be reached on, not just the one it was told to bind.
+    # 0.0.0.0 is not somewhere you can type into a phone.
+    where = addresses() if host in ("", "0.0.0.0", "::") else [host]
+    for address in where:
+        url = f"http://{address}:{port}/?token={cfg.token}"
+        print(f"  open    {url}")
+        if args.qr:
+            print()
+            print_qr(url)
+            print()
+    if not args.qr:
+        print("          (panoptes --qr prints a code to photograph)")
+    print()
     uvicorn.run(create_app(cfg), host=host or "127.0.0.1", port=int(port), log_level="warning")
     return 0
 
