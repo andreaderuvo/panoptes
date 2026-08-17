@@ -64,6 +64,12 @@ machines:
 The name is yours, not the machine's: you called it `lab-gpu` for a reason, and two boxes
 can answer to the same hostname. What it calls itself is shown beside it.
 
+`reach` is where a **browser** should go, and it matters more than it looks. A board beside
+an Argus polls it over loopback, which on a card would send the reader to their own laptop.
+And a browser keeps its keys per origin: `http://box:8090` and `http://10.0.0.7:8090` are
+two different places to it, so a link to the address you never use will ask for a token you
+have already given. Put the one you actually type.
+
 ## Notes
 
 - One sweep serves every open tab. Ten browsers do not mean ten times the questions.

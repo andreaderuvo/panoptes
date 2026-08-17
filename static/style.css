@@ -1,5 +1,7 @@
 /* Argus's palette, because this is the same thing seen from further away. */
 :root {
+  --tap: 46px;
+  --bar: 52px;
   --bg: #0b0e14;
   --panel: #11151d;
   --line: #1e2530;
@@ -12,37 +14,62 @@
   --bad: #e0736c;
   color-scheme: dark;
 }
+
+/* Argus's own light palette, copied value for value. Two programs that sit side by side
+   on the same screen and disagree about what white is look like an accident. */
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --line: #dde2ea;
+  --text: #2c333d;
+  --dim: #6c7583;
+  --bright: #10141b;
+  --accent: #17805a;
+  --on-accent: #ffffff;
+  --warn: #8a6d3b;
+  --bad: #b53d31;
+  color-scheme: light;
+}
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  padding: 0 1rem 3rem;
+  padding: 0 0 3rem;
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+/* The same bar Argus has: 52px tall, .35rem of padding, panel behind it, one line under.
+   Measured off its stylesheet rather than eyeballed — this used to be a third taller. */
 header {
-  display: flex; align-items: baseline; gap: .8rem;
-  padding: 1.1rem .2rem .9rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  height: var(--bar);
+  padding: 0 .35rem;
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
-  position: sticky; top: 0; background: var(--bg); z-index: 2;
+  position: sticky; top: 0; z-index: 2;
 }
 header .mark { flex: none; border-radius: .35rem; }
 /* The two things a board wants in its corner: somewhere to read about it, and a way to
    fill the screen — a wall display showing this has no business showing a browser too. */
 header .icon {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; padding: 0; align-self: center;
-  border: 1px solid transparent; border-radius: .35rem;
-  background: none; color: var(--dim); cursor: pointer; text-decoration: none;
+  min-width: var(--tap); height: var(--tap); padding: 0;
+  border: 0; border-radius: .5rem;
+  background: none; color: var(--text); cursor: pointer; text-decoration: none;
 }
-header .icon:hover { color: var(--bright); background: var(--line); }
-header .icon svg { width: 17px; height: 17px; }
-h1 { margin: 0; font-size: 1.15rem; color: var(--bright); letter-spacing: -.01em; }
+header .icon:active { background: var(--line); }
+header .icon:hover { color: var(--bright); }
+header .icon svg { width: 20px; height: 20px; }
+h1 { margin: 0; font-size: 1.05rem; color: var(--bright); letter-spacing: -.01em; }
 .dim { color: var(--dim); font-size: .8rem; }
 .grow { flex: 1; }
 
 main {
+  padding-left: 1rem;
+  padding-right: 1rem;
   display: grid;
   gap: .8rem;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
@@ -88,6 +115,7 @@ main {
 .empty { color: var(--dim); padding: 2rem .2rem; }
 
 footer {
+  margin: 0 1rem;
   display: flex; gap: .8rem; align-items: center;
   border-top: 1px solid var(--line); padding: .8rem .2rem;
 }
