@@ -176,9 +176,12 @@ def create_app(cfg: Config) -> FastAPI:
         if not str(target).startswith(str(STATIC_DIR)) or not target.is_file():
             index = STATIC_DIR / "index.html"
             if index.is_file():
-                return FileResponse(index)
+                return FileResponse(index, headers={"cache-control": "no-cache"})
             return JSONResponse({"error": "frontend missing"}, status_code=500)
-        return FileResponse(target)
+        # Always revalidated. There is no service worker here and no version in the file
+        # names, so without this a browser keeps yesterday's page and you debug a fix that
+        # is already deployed — which is exactly what happened.
+        return FileResponse(target, headers={"cache-control": "no-cache"})
 
     app.add_middleware(TokenGate, token=cfg.token, registration=cfg.registration_token)
     return app

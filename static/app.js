@@ -17,7 +17,42 @@ if (fromBar) {
   localStorage.setItem(KEY, fromBar);
   history.replaceState(null, '', location.pathname);
 }
-const token = localStorage.getItem(KEY) || '';
+let token = localStorage.getItem(KEY) || '';
+
+// The bar at the top of a phone matches the page rather than staying dark over a light
+// one. Argus does the same; two windows of the same thing should not disagree.
+document.querySelector('meta[name=theme-color]')?.setAttribute(
+  'content', document.documentElement.dataset.theme === 'light' ? '#ffffff' : '#0b0e14',
+);
+
+/** Somewhere to put the token when you did not arrive by link.
+ *
+ *  The message used to say the address needed one and then offer nowhere to type it, which
+ *  is a door with a sign on it and no handle. It happens more than it sounds: a browser
+ *  keeps its keys per origin, so reaching the same board by name after having reached it
+ *  by address is arriving somewhere new.
+ */
+function askForToken(why) {
+  const field = el('input', {
+    type: 'password', className: 'tokenbox', placeholder: 'token',
+    autocomplete: 'off', spellcheck: false,
+  });
+  const go = el('button', { className: 'primary', textContent: 'Open' });
+  const form = el('form', { className: 'askbox' }, [
+    el('p', { textContent: why }),
+    el('div', { className: 'askrow' }, [field, go]),
+  ]);
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    const given = field.value.trim();
+    if (!given) return;
+    localStorage.setItem(KEY, given);
+    token = given;
+    draw();
+  };
+  board.replaceChildren(form);
+  field.focus();
+}
 
 const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);
@@ -111,7 +146,7 @@ async function draw() {
   try {
     const r = await fetch('/api/board', { headers: { Authorization: `Bearer ${token}` } });
     if (r.status === 401) {
-      board.replaceChildren(el('p', { className: 'empty', textContent: 'This board needs its token in the address, once.' }));
+      askForToken(token ? 'That token was refused.' : 'This board needs its token.');
       return;
     }
     answer = await r.json();

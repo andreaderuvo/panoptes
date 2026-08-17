@@ -1,0 +1,13 @@
+{
+  "name": "Panoptes",
+  "short_name": "Panoptes",
+  "description": "One board over several machines running Argus.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "icons": [
+    { "src": "/mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

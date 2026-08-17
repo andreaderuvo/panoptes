@@ -114,6 +114,20 @@ main {
 .cardfoot { margin-top: .6rem; font-size: .74rem; }
 .empty { color: var(--dim); padding: 2rem .2rem; }
 
+/* The way in, for when you did not arrive by link. */
+.askbox { grid-column: 1 / -1; max-width: 26rem; padding: 1.4rem .2rem; color: var(--dim); }
+.askrow { display: flex; gap: .5rem; margin-top: .6rem; }
+input.tokenbox {
+  flex: 1; min-width: 0; height: 38px; padding: 0 .7rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: .4rem;
+  color: var(--text); font: inherit;
+}
+input.tokenbox:focus { border-color: var(--accent); outline: none; }
+button.primary {
+  height: 38px; padding: 0 1.1rem; border: 1px solid var(--accent); border-radius: .4rem;
+  background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer;
+}
+
 footer {
   margin: 0 1rem;
   display: flex; gap: .8rem; align-items: center;
