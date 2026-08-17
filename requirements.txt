@@ -1,0 +1,9 @@
+# Runtime
+fastapi>=0.115
+uvicorn[standard]>=0.30
+httpx>=0.27          # how every machine is asked
+pyyaml>=6.0
+
+# Tests
+pytest>=8.0
+pytest-asyncio>=0.23
