@@ -318,7 +318,22 @@ async function ask(path) {
  *  Only shown when the machine offers it: `may_stop_argus` on that machine's watcher entry.
  */
 function stopArgusRow(machine, close, done) {
-  if (!machine.can_stop_argus) return null;
+  /* Shown even when it is not allowed, and disabled with the reason.
+   *
+   *  Absent, it was indistinguishable from not existing: the button had been built, tested
+   *  and documented, and the first person to look for it could not tell whether the feature
+   *  was missing or the permission was. One line of explanation turns a mystery into an
+   *  instruction — and it says where the line goes, since that is the actual question.
+   */
+  if (!machine.can_stop_argus) {
+    return el('div', { className: 'offer' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'dim', textContent: t('Argus itself') }),
+        el('span', { className: 'meta', textContent: t('this machine has not allowed it — add may_stop_argus: true to its watcher') }),
+      ]),
+      el('button', { className: 'ghost', type: 'button', textContent: t('Stop Argus'), disabled: true }),
+    ]);
+  }
   const press = el('button', {
     className: 'ghost danger', type: 'button', textContent: t('Stop Argus'),
     onclick: async () => {
@@ -471,11 +486,16 @@ function machineSheet(machine, done) {
   };
   paintOffers();
 
-  sheet.append(
+  // The heading belongs to whatever is in the section, and the Argus row counts — otherwise a
+  // machine offering nothing to start showed a lone disabled button under no heading at all.
+  const argusRow = machine.url ? stopArgusRow(machine, close, done) : null;
+  const canDo = offers.length || argusRow;
+
+  put(sheet,
     el('h2', { textContent: name }),
-    offers.length ? el('h3', { textContent: t('Start and stop') }) : null,
+    canDo ? el('h3', { textContent: t('Start and stop') }) : null,
     offers.length ? doing : null,
-    machine.url ? stopArgusRow(machine, close, done) : null,
+    argusRow,
     el('h3', { textContent: t('Colour') }),
     swatches,
     el('h3', { textContent: t('Tint strength — every tile') }),
@@ -523,6 +543,18 @@ const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);
   for (const kid of [].concat(kids)) if (kid) node.append(kid);
   return node;
+};
+
+/** `append` with the same manners as `el`.
+ *
+ *  `ParentNode.append` stringifies whatever it is given, so a `cond ? node : null` in the
+ *  argument list puts the word "null" on the screen. It did: a tile with nothing to start
+ *  and no permission to be stopped had three of those conditions, and its sheet said
+ *  `nullnullnull` under the machine's name.
+ */
+const put = (parent, ...kids) => {
+  for (const kid of kids) if (kid) parent.append(kid);
+  return parent;
 };
 
 const ago = (seconds) => {
@@ -722,6 +754,7 @@ function card(machine) {
   const wants = sessions.some((s) => s.bell === 'asking');
   const card = el('article', {
     className: `card${wants ? ' wants' : ''}${machine.ok ? '' : ' cold'}${machine.url ? ' open' : ''}`,
+    // Safe as written: `el` drops falsy children. `append` does not — see `put`.
   }, [head, note ? el('p', { className: 'note', textContent: note }) : null, body, foot]);
   // Down the left edge, which is also where "this one wants you" is said — so a machine
   // asking for you overrides its own colour rather than competing with it.

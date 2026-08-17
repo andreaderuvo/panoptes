@@ -332,13 +332,73 @@ The design is one idea: **the board is not a way in.**
 - **It refuses to start** with an empty or short token, with a watcher token that equals the
   main one, or with a registration token that equals the board's.
 
-What it does **not** protect you from: this is plain HTTP by default, and the board still
-lists every machine you own. Put it on a LAN, behind a VPN, or reach it through an SSH
-tunnel:
+### What it does not protect you from
+
+- **It is plain HTTP by default.** Anyone on the path sees the board's token go past once, in
+  the address, and everything after it.
+- **It publishes your estate.** Not a way in, but a list of every machine you run, what is on
+  each, and how full its disks are. That is reconnaissance, handed over.
+- **`may_run` widens it.** With that flag on a watcher, whoever holds the board's config can
+  start and stop the things you listed, and stop those Argus servers if you allowed it. Still
+  not a shell — the key gets 403 on files, sessions, ports and everything else — but it is no
+  longer read-only.
+
+## Reaching it from outside
+
+The board is safer to expose than an Argus, because there is no shell behind it. It is still
+not something to put on the open internet, and there is a second reason that catches people
+out: **the links on the tiles have to work from wherever you are reading the board.** A tile
+sends you to `reach:`, and if that is a LAN address then a board reached over the internet is
+a board full of dead links. Fixing the board's own reachability without fixing the machines'
+gets you one page and no way through it.
+
+Which is why a VPN is the right shape here rather than a public URL — it makes the board and
+every machine on it reachable by the same names, from anywhere.
+
+**Tailscale** — the one to pick, and the one this pairs with best:
+
+```bash
+# on the machine running the board
+tailscale serve --bg 8070          # https://<board>.<tailnet>.ts.net → your board
+```
+
+Then in the config, give each machine its **MagicDNS name** as `reach`, so a tile sends you
+somewhere that resolves from your phone as well as from the board:
+
+```yaml
+machines:
+  - name: hetzner
+    url: http://127.0.0.1:8090            # where this board asks, over loopback
+    reach: https://hetzner.tailnet.ts.net # where a browser should go, from anywhere
+    token: …
+```
+
+`serve` puts a real certificate in front, which is also what unlocks an installable PWA and
+the clipboard API. Nothing is exposed to the internet: only devices on your tailnet can reach
+it. **`tailscale funnel` does expose it publicly — don't.** Not for the board, and certainly
+not for an Argus, which is a shell.
+
+**An SSH tunnel** — nothing to install anywhere, and enough for one sitting:
 
 ```bash
 ssh -N -L 8070:127.0.0.1:8070 you@board
+# then open http://127.0.0.1:8070
 ```
+
+The tiles' links will point at addresses your laptop cannot resolve unless you forward those
+too, one `-L` per machine. Fine for a look, tiring as a habit.
+
+**WireGuard, Cloudflare Tunnel, Teleport** — all work, and none of them needs anything from
+Panoptes. That is deliberate: `report_to` exists precisely to abstract "the network only goes
+one way", and it covers all of them the same. There is no Tailscale integration in the code
+and there should not be — it would make one product the privileged path for a problem that is
+already solved neutrally.
+
+**A public reverse proxy**, if you insist: terminate TLS, require your own authentication in
+front (the board's token is not enough on the open internet), and accept that you now need a
+public hostname per Argus for the links to work — which multiplies the exposure by the number
+of machines you own. Argus's [own notes on this](https://github.com/andreaderuvo/argus#reaching-it-from-outside)
+apply, more so.
 
 ## Development
 

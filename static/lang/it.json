@@ -53,6 +53,7 @@
   "swept {when}": "guardate {when}",
   "that token may not ask this": "quel token non può chiedere questo",
   "the token was refused": "il token è stato rifiutato",
+  "this machine has not allowed it — add may_stop_argus: true to its watcher": "questa macchina non lo consente — aggiungi may_stop_argus: true al suo watcher",
   "tint times {n}": "tinta per {n}",
   "tint × {n}": "tinta × {n}",
   "token": "token",
