@@ -864,7 +864,9 @@ function card(machine) {
     life,
     el('a', {
       className: 'name', href: machine.url, target: '_blank', rel: 'noopener noreferrer',
-      textContent: machine.name,
+      // Both of these can be shortened to fit a narrow tile, so both say the whole thing
+      // on hover. A name cut to "worklab-nextf…" is not an answer on its own.
+      textContent: machine.name, title: machine.name,
     }),
   ]);
 
@@ -890,7 +892,8 @@ function card(machine) {
   }
 
   if (!machine.ok) {
-    readouts.append(el('span', { className: 'state bad', textContent: whyNot(machine) }));
+    const said = whyNot(machine);
+    readouts.append(el('span', { className: 'state bad', textContent: said, title: said }));
   } else {
     const load = machine.load_pct ?? 0;
     readouts.append(el('span', {
@@ -942,7 +945,17 @@ function card(machine) {
     onclick: (e) => { e.stopPropagation(); editNote(machine, card, draw); },
   }, icon('pencil')));
 
-  if (machine.can_stop_argus) {
+  /* Not on a machine that is not answering.
+   *
+   *  Stopping an Argus that is already down is a button that can only fail, and it was still
+   *  sitting there on a tile gone red — reported, and fair: the tile has just told you the
+   *  machine is unreachable, and then offers to reach it.
+   *
+   *  One exception, and it is the reason this is not a one-line check: a machine that calls
+   *  *in* is unreachable by definition, and its stop is queued for the next time it speaks.
+   *  There, "it is quiet right now" and "you cannot ask it to stop" are different statements.
+   */
+  if (machine.can_stop_argus && (machine.ok || machine.announced)) {
     acts.append(el('button', {
       className: 'kill', type: 'button',
       title: t('Stop Argus on {name}?', { name: machine.name }),

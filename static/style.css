@@ -130,11 +130,26 @@ main {
   flex-wrap: nowrap;
 }
 /* The readings. Pushed right by their own margin rather than by a spacer, and never
-   squeezed below what they need: they wrap only when the room has genuinely run out. */
+   squeezed below what they need: they wrap only when the room has genuinely run out.
+
+   They *may* be squeezed when the room has run out altogether, though — which is what a
+   machine that has stopped does to a tile. Its reading is a sentence rather than a number
+   ("nothing listening there"), and beside a long name that was wider than the tile: the
+   buttons at the end went over the edge and off the card. Nothing shrank because nothing
+   was allowed to.
+
+   So both give way, and in an order: the reading first (four times as readily), the name
+   only once that is spent. A truncated reason is still red and still says the tile is in
+   trouble, and the whole of it is one hover away; a truncated name is a tile you cannot
+   identify, which is the one thing the header is for. */
 .readouts {
   display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
-  justify-content: flex-end; margin-left: auto; flex: 0 0 auto; min-width: 0;
+  justify-content: flex-end; margin-left: auto; flex: 0 999 auto; min-width: 0;
 }
+/* `flex: none` on a reading is right for a number — `load 1.21` should never be cut — and
+   wrong for the one that is a sentence: it made the chip wider than the box holding it, so
+   it sat on top of the name instead of giving way. The sentence is the one that shrinks. */
+.readouts > .state.bad { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* What you can press. Never breaks, never shrinks. */
 .acts { flex: none; display: inline-flex; align-items: center; gap: .1rem; }
 /* The machine's colour said once, at full strength, where the eye already is. The wash
@@ -283,6 +298,23 @@ main {
 /* Cancel is the calm one, and the one the keyboard lands on first. */
 .sheetfoot .ghost:first-child { color: var(--text); }
 .name { color: var(--bright); font-weight: 600; text-decoration: none; white-space: nowrap; }
+/* Down to about four characters and then no further, with the rest on hover.
+
+   The shrink factor is a thousandth rather than zero, and that is the whole trick. Sharing
+   out a shortfall hands every shrinkable item a slice in proportion to its weight, so at 1
+   the name gave up three tenths of a pixel — and a browser pays for three tenths of a pixel
+   by dropping two whole characters and drawing an ellipsis. `worklab-nextflow4` came out as
+   `worklab-nextflo…` beside a chip that had room to spare.
+
+   At a thousandth its slice rounds to nothing while there is anything else left to give, so
+   the sentence beside it goes first; once that has bottomed out the name is the only thing
+   still able to shrink and takes what remains, down to its floor. Zero would not do that —
+   it would put the buttons back over the edge of a tile with a very long name, which is the
+   bug this all started as. */
+.cardhead .name {
+  flex: 0 .001 auto; min-width: 4ch;
+  overflow: hidden; text-overflow: ellipsis;
+}
 .name:hover { color: var(--accent); }
 /* A reading, and how loudly it is said.
  *
