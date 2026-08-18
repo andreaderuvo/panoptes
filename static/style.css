@@ -486,3 +486,12 @@ input.jfind:focus { border-color: var(--accent); outline: none; }
 }
 @media (max-width: 40rem) { .jrow .jwhen { display: none; } }
 footer a:hover { color: var(--accent); }
+
+/* Which agent a session says it is. Quieter than the name — the name is what you click, this
+   is what it happens to be — and absent entirely when nobody has said. */
+.chip .who {
+  margin-left: .3rem; padding: 0 .25rem;
+  font-size: .62rem; line-height: 1.5; letter-spacing: .02em;
+  color: var(--dim); border: 1px solid var(--line); border-radius: .25rem;
+}
+.chip:hover .who { color: var(--text); }

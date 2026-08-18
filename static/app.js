@@ -825,7 +825,24 @@ function sessionChip(session, url) {
   });
   chip.append(el('span', { className: 'dot' }));
   chip.append(el('span', { textContent: session.name }));
+  /* Who is in there, when the session says so.
+   *
+   *  A board cannot work this out and should not try: it has no process tree to read and no
+   *  business running `ps` on somebody else's machine. What it can do is repeat what the
+   *  agent declared — Argus carries `agent` and `model` in the overview when a hook has
+   *  written them — so a tile showing `claude` is a tile quoting the agent rather than
+   *  guessing about it, and a session that says nothing simply shows nothing.
+   *
+   *  The name only. The model is in the tooltip: on a tile with six sessions on it, six
+   *  model names is a paragraph, and the question a board answers is "which machine needs
+   *  me", not "what is each of them running".
+   */
+  if (session.agent) chip.append(el('span', { className: 'who', textContent: session.agent }));
   if (session.windows > 1) chip.append(el('span', { className: 'dim', textContent: `·${session.windows}` }));
+  if (session.agent || session.model) {
+    const said = [session.agent, session.model].filter(Boolean).join(' · ');
+    chip.title = `${chip.title} — ${said}`;
+  }
   return chip;
 }
 
