@@ -19,6 +19,10 @@ services:
     # Or, once a release is published:
     # image: ghcr.io/andreaderuvo/panoptes:latest
     container_name: panoptes
+    # As you, not as root. Left to itself the container writes /config/config.yaml owned by
+    # root at mode 600 — and then the token, in a file in your own directory, is one you
+    # cannot read. Measured, on the first run of this.
+    user: "${UID:-1000}:${GID:-1000}"
     ports:
       # Loopback only, and the outside port is yours to pick: `PANOPTES_PORT=8880 docker
       # compose up -d`. Drop the `127.0.0.1:` to put it on your network.

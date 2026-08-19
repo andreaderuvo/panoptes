@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# The compose default for the config volume: a token and a fleet, not source.
+config/
