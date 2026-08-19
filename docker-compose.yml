@@ -22,7 +22,10 @@ services:
     # As you, not as root. Left to itself the container writes /config/config.yaml owned by
     # root at mode 600 — and then the token, in a file in your own directory, is one you
     # cannot read. Measured, on the first run of this.
-    user: "${UID:-1000}:${GID:-1000}"
+    # Not ${UID}: bash makes that variable readonly, so `UID=$(id -u) docker compose up`
+    # fails outright. Its default of 1000 is right on most single-user machines; pass
+    # PANOPTES_UID/PANOPTES_GID when it is not.
+    user: "${PANOPTES_UID:-1000}:${PANOPTES_GID:-1000}"
     ports:
       # Loopback only, and the outside port is yours to pick: `PANOPTES_PORT=8880 docker
       # compose up -d`. Drop the `127.0.0.1:` to put it on your network.
