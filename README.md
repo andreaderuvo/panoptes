@@ -18,6 +18,7 @@ in it is invented by `scripts/demo.py`.*
 [![tests](https://github.com/andreaderuvo/panoptes/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/panoptes/actions/workflows/tests.yml)
 [![install](https://github.com/andreaderuvo/panoptes/actions/workflows/install.yml/badge.svg)](https://github.com/andreaderuvo/panoptes/actions/workflows/install.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![status](https://img.shields.io/badge/status-early%20%C2%B7%20interfaces%20may%20change-d6b46f)](#)
 [![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 [![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](https://github.com/andreaderuvo/panoptes/wiki/Getting-started)
 [![companion to argus](https://img.shields.io/badge/companion%20to-argus-8fd6a0)](https://github.com/andreaderuvo/argus)
@@ -48,6 +49,17 @@ the thing before wiring anything up.
 Then tell it about your machines, or tell your machines about it — [both directions
 work](https://github.com/andreaderuvo/panoptes/wiki/Machines-on-the-board), and which one
 you want depends on which way through your network is open.
+
+> [!NOTE]
+> **Early, and moving.** Panoptes is days old and in daily use by one person. The tests run on
+> every push, and so does the churn: **config keys and API shapes can change between commits**,
+> and a version number is a marker rather than a contract until 1.0. Nothing here owns anything
+> — losing this board loses a list of session names — so the risk is inconvenience rather than
+> damage.
+>
+> **Feedback is the most useful thing you can send**, especially "this broke" or "I expected X".
+> [Open an issue](https://github.com/andreaderuvo/panoptes/issues) with what you did, what
+> happened, and which OS.
 
 > [!IMPORTANT]
 > **Panoptes cannot get into anything.** It holds one read-only key per machine, never
