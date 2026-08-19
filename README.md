@@ -7,11 +7,13 @@
 **One page for every machine you run agents on: which are up, what is running on them, and
 which one is waiting for you.**
 
-![Six machines on one board: five working, one out of disk, one that has stopped calling in, and one asking for you](docs/img/board.png)
+![Six machines on one board: five working, one out of disk, one that has stopped calling in, and an agent on a sixth stopping to ask a question mid-clip](docs/img/board.gif)
 
-*Six machines, one screen. `vaporwave` is the one asking you something — it is at the top
-and it is the only tile wearing the accent. `old-faithful` is at 96% on `/var/lib/archive`.
-`shed` has stopped calling in. Clicking a session name opens that terminal, on that machine.*
+*Six machines, one screen. `vaporwave` is asking you something, so it is at the top.
+`old-faithful` is at 96% on `/var/lib/archive`, `shed` has stopped calling in — and halfway
+through, an agent on `brick` stops and asks: nobody was watching `brick`, and it comes to the
+top on its own. Clicking a session name opens that terminal, on that machine. Every machine
+in it is invented by `scripts/demo.py`.*
 
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)

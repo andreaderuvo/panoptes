@@ -167,6 +167,16 @@ def fill(port: int) -> None:
 
 
 def write_config(path: Path, port: int) -> None:
+    """A directory of its own, and this is not fussiness.
+
+    A board remembers what announced itself in `announced.json`, *beside its config file* — so
+    two boards whose configs sit in the same directory share the machines they have been told
+    about. Put this one's config straight in `/tmp` and the demo board comes up holding
+    whatever real machine reported to the board you already run there, under its real name,
+    with its real sessions and its real disks. That is how a hostname gets into a picture on
+    a public README: measured, once, in a clip that had to be thrown away.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"listen: 127.0.0.1:{port}\n"
         f"token: {BOARD_TOKEN}\n"
@@ -186,7 +196,7 @@ def main() -> int:
     # 8099 and its neighbours are common enough to be taken; this one rarely is.
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--once", action="store_true", help="only announce, into a board already running")
-    ap.add_argument("--config", type=Path, default=Path("/tmp/panoptes-demo.yaml"))
+    ap.add_argument("--config", type=Path, default=Path("/tmp/panoptes-demo/panoptes.yaml"))
     args = ap.parse_args()
 
     if args.once:
