@@ -28,12 +28,17 @@ wiki →](https://github.com/andreaderuvo/panoptes/wiki)**
 ## Run it
 
 ```bash
-git clone https://github.com/andreaderuvo/panoptes && cd panoptes
-pip install -r requirements.txt
-python3 -m app.main            # prints a URL with a token in it; --qr prints a code too
+curl -fsSL https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh | bash
+panoptes                       # prints a URL with a token in it; --qr prints a code too
 ```
 
-Python 3.11+, three dependencies, no build step, no database. The first run writes
+No `sudo`, nothing outside your home; the same line again updates it. Or `docker compose up
+-d` — a board is the one of the two that belongs in a container, since it has no tmux, no
+filesystem and no terminal — or `git clone` and `pip install -r requirements.txt`. [All
+three](https://github.com/andreaderuvo/panoptes/wiki/Getting-started).
+
+Python 3.11+, four dependencies, no build step, no database. Runs anywhere Python does,
+Windows included. The first run writes
 `~/.config/panoptes/config.yaml` with a fresh token; add your machines to it and restart.
 With none listed the board says so and shows you what it would look like, so you can see
 the thing before wiring anything up.

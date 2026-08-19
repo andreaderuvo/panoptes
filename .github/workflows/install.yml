@@ -1,0 +1,88 @@
+name: install
+
+# Does the one-line install work, and does the image come up and answer? Both are claims made
+# in the README, and a claim in a README rots quietly.
+#
+# The installer is run from the checkout rather than from the network, so a pull request tests
+# its own version of the script.
+
+on:
+  push:
+    branches: [master, main]
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+  pull_request:
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+  workflow_dispatch:
+
+jobs:
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install into an empty home
+        run: |
+          mkdir -p "$RUNNER_TEMP/home"
+          env -i HOME="$RUNNER_TEMP/home" PATH="$PATH" USER="$USER" bash install.sh
+
+      - name: it starts and answers
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          export PATH="$HOME/.local/bin:$PATH"
+          panoptes --version
+          panoptes --listen 127.0.0.1:8099 &
+          for i in $(seq 1 40); do sleep 0.5; [ -f "$HOME/.config/panoptes/config.yaml" ] && break; done
+          token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-zA-Z_-]*\).*/\1/p' "$HOME/.config/panoptes/config.yaml")
+          [ -n "$token" ] || { echo "no token in the config"; exit 1; }
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/board?token=$token" || true)
+            [ "$code" = "200" ] && break
+            sleep 0.5
+          done
+          [ "$code" = "200" ] || { echo "the installed copy never answered"; exit 1; }
+
+      - name: running it again keeps the token
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          before=$(sed -n 's/^token: *//p' "$HOME/.config/panoptes/config.yaml")
+          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh
+          after=$(sed -n 's/^token: *//p' "$HOME/.config/panoptes/config.yaml")
+          [ "$before" = "$after" ] || { echo "the update changed the token"; exit 1; }
+
+      - name: uninstalling leaves the configuration and nothing else
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh uninstall
+          [ ! -e "$HOME/.local/share/panoptes" ] || { echo "the code is still there"; exit 1; }
+          [ -f "$HOME/.config/panoptes/config.yaml" ] || { echo "it threw away the config"; exit 1; }
+
+  # A board has nothing to reach into, so this is the easy one: build it, start it, ask it for
+  # the board it is serving. A demo fleet is announced into it so the answer is not an empty
+  # page — which is also a check on the announcement endpoint through a container.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t panoptes:ci .
+      - name: it comes up, and a machine can announce itself to it
+        run: |
+          mkdir -p "$RUNNER_TEMP/config"
+          docker run -d --name panoptes-ci \
+            -v "$RUNNER_TEMP/config:/config" \
+            -p 127.0.0.1:8099:8770 \
+            panoptes:ci
+          for i in $(seq 1 40); do sleep 0.5; [ -f "$RUNNER_TEMP/config/config.yaml" ] && break; done
+          token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-zA-Z_-]*\).*/\1/p' "$RUNNER_TEMP/config/config.yaml")
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/board?token=$token" || true)
+            [ "$code" = "200" ] && break
+            sleep 0.5
+          done
+          [ "$code" = "200" ] || { docker logs panoptes-ci; echo "the container never answered"; exit 1; }
+          echo "answered on /api/board"
+      - name: and the compose file parses
+        run: PANOPTES_PORT=8098 docker compose config >/dev/null

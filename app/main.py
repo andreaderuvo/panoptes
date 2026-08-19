@@ -448,7 +448,13 @@ def print_qr(url: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="panoptes", description=__doc__)
-    parser.add_argument("--config", type=Path, default=default_path())
+    # The first thing anybody types at a program they have just installed, and the first thing
+    # an issue report is asked for. The startup banner is no substitute: it needs the server to
+    # have started, which is the one case where you cannot ask.
+    parser.add_argument("--version", action="version", version=f"panoptes {VERSION}")
+    parser.add_argument("--config", type=Path, default=default_path(),
+                        help="config file: the token, the machines, and the keys they gave you "
+                             "(created with a fresh token on first run)")
     parser.add_argument("--qr", action="store_true",
                         help="print a code you can photograph, for each address it answers on")
     # Overrides the config for this run only. The usual reason is a port already taken, and

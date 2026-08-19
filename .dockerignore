@@ -1,0 +1,9 @@
+.git
+.github
+docs
+tests
+scripts
+*.md
+*.mjs
+__pycache__
+.pytest_cache

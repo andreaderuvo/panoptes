@@ -1,0 +1,30 @@
+# Panoptes in a container.
+#
+#   docker compose up -d && docker compose logs        # the URL with the token is in there
+#
+# A board has nothing to reach into — no tmux, no filesystem, no terminal, no processes — so
+# unlike Argus this needs no host namespaces and no matching uid. A port and a volume for the
+# configuration is the whole deployment.
+#
+# Windows: this is the one of the two that works anywhere Docker does, WSL or not, because
+# nothing in it is Unix-specific.
+#
+# Reaching the machines it watches: they have to be reachable *from the container*. On the
+# same host, `network_mode: host` is the simplest answer; across a network, whatever address
+# you would type into a browser works as it is.
+
+services:
+  panoptes:
+    build: .
+    # Or, once a release is published:
+    # image: ghcr.io/andreaderuvo/panoptes:latest
+    container_name: panoptes
+    ports:
+      # Loopback only, and the outside port is yours to pick: `PANOPTES_PORT=8880 docker
+      # compose up -d`. Drop the `127.0.0.1:` to put it on your network.
+      - "127.0.0.1:${PANOPTES_PORT:-8770}:8770"
+    volumes:
+      # The token, the machines you listed and the keys they gave you. Keep it: a new image
+      # then changes nothing about the board.
+      - ${PANOPTES_CONFIG_DIR:-./config}:/config
+    restart: unless-stopped
