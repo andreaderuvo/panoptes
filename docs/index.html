@@ -192,9 +192,8 @@
       <a class="btn ghost" href="https://andreaderuvo.github.io/argus/">Argus</a>
     </div>
 
-    <code class="oneliner">git clone https://github.com/andreaderuvo/panoptes &amp;&amp; cd panoptes
-pip install -r requirements.txt
-python3 -m app.main   <span class="said"># prints a URL with a token in it</span></code>
+    <code class="oneliner">curl -fsSL https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh | bash
+panoptes   <span class="said"># prints a URL with a token in it</span></code>
     <p class="badges">MIT · Python + vanilla JS · no build step · no database · self-hosted</p>
 
     <div class="pinshot">
@@ -354,10 +353,17 @@ watchers:
 
   <section id="start">
     <h2>Run it in a minute</h2>
+<pre>curl -fsSL https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh | bash
+panoptes                       # prints a URL with a token in it
+panoptes --qr                  # and a code to photograph</pre>
+    <p>No <code>sudo</code>, nothing outside your home, and the same line again updates it. Or a
+      container — and here a container is not a compromise but the right shape, since a board has
+      no tmux, no filesystem and no terminal to reach into, so it needs no host namespaces and
+      works anywhere Docker does, Windows included:</p>
 <pre>git clone https://github.com/andreaderuvo/panoptes &amp;&amp; cd panoptes
-pip install -r requirements.txt
-python3 -m app.main            # prints a URL with a token in it
-python3 -m app.main --qr       # and a code to photograph</pre>
+docker compose up -d</pre>
+    <p>Or <code>git clone</code> and <code>pip install -r requirements.txt</code>, as before. All
+      three are checked on every change, on Linux and macOS.</p>
     <p>That is the board. Then tell it about your machines, or tell your machines about it —
       both directions work, and which one you want depends on your network. The
       <a href="https://github.com/andreaderuvo/panoptes#how-a-machine-gets-onto-the-board">README</a>
