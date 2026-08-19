@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- See the note in Argus's copy: every link GitHub draws to this page is nofollowed, so a
+     sitemap submitted in Search Console is the only way Google is told it exists. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://andreaderuvo.github.io/panoptes/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
