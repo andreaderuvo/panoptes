@@ -70,6 +70,12 @@ FLEET = [
         "memory_pct": 22.0,
         "swap_pct": 0.0,
         "disk": {"path": "/data", "pct": 38.0, "level": "ok"},
+        # An orchestration halfway through, because a board that only ever shows sessions
+        # cannot show what it looks like when one machine is running four agents on one job.
+        "runs": [
+            {"id": "d1", "name": "referee", "state": "running",
+             "done": 2, "agents": 5, "asking": 0, "lost": 0},
+        ],
         "sessions": [
             {"name": "codex", "bell": "done", "windows": 1, "attached": False},
             {"name": "build", "bell": None, "windows": 4, "attached": False},

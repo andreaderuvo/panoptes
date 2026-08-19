@@ -709,6 +709,10 @@ const GLYPHS = {
   pencil: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
   // The universal power glyph, which needs no label in any language.
   power: 'M12 3.5v7.5M7.4 6.4a7 7 0 1 0 9.2 0',
+  // Several strands meeting one: a fan-out and its judge, which is the shape of every
+  // orchestration on here. It has to be tellable from a session's dot at a glance, because
+  // the two sit side by side in the same row and lead to different places.
+  run: 'M4 6h4a4 4 0 0 1 4 4v4a4 4 0 0 0 4 4h4M4 18h4M18 6h2',
 };
 
 const icon = (name) => svgEl('svg', { viewBox: '0 0 24 24', class: 'ico', 'aria-hidden': 'true' },
@@ -810,6 +814,35 @@ function whyNot(machine) {
 
 /** A session is worth looking at, or it is not. Only two states earn a colour: one of
  *  them wants you, and one of them has finished. Everything else is quiet on purpose. */
+/** An orchestration on that machine, as one line.
+ *
+ *  A summary and never the graph. A board answers "which machine needs me", and the picture
+ *  of who is waiting on whom belongs on the machine where you can do something about it — so
+ *  this says how far along it is, goes amber when an agent inside it has stopped to ask, and
+ *  the link opens that machine's Argus, where the diagram is.
+ */
+function runChip(run, url) {
+  const trouble = run.asking ? 'asking' : run.lost ? 'lost' : '';
+  const chip = el('a', {
+    className: `chip run${trouble ? ` chip-${trouble === 'asking' ? 'asking' : 'lost'}` : ''}`,
+    href: `${url}/#/wall`,
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    title: run.asking ? t('an agent in it is waiting for you')
+      : run.state === 'done' ? t('finished')
+        : t('{done} of {all} finished', { done: run.done, all: run.agents }),
+  });
+  // The mark, not the dot every session wears: these sit in the same row and go to different
+  // places, and `referee 2/5` beside `codex` reads as a session with an odd label otherwise.
+  chip.append(icon('run'));
+  chip.append(el('span', { textContent: run.name }));
+  chip.append(el('span', {
+    className: 'dim',
+    textContent: run.state === 'done' ? `·${run.done}/${run.agents}` : ` ${run.done}/${run.agents}`,
+  }));
+  return chip;
+}
+
 function sessionChip(session, url) {
   const why = session.bell;
   // Straight to that terminal, not merely to the machine it is on. The card already does
@@ -1003,7 +1036,11 @@ function card(machine) {
   const note = noteFor(machine);
 
   const sessions = machine.sessions || [];
+  const running = machine.runs || [];
   const body = el('div', { className: 'chips' });
+  // Orchestrations first: one of them is several of the sessions underneath it, so it is the
+  // shorter answer to "what is this machine doing" and the one worth reading first.
+  for (const r of running) body.append(runChip(r, machine.url));
   if (sessions.length) {
     for (const s of sessions) body.append(sessionChip(s, machine.url));
   } else if (machine.ok) {
@@ -1060,7 +1097,7 @@ function card(machine) {
     }, icon('copy')));
   }
 
-  const wants = sessions.some((s) => s.bell === 'asking');
+  const wants = sessions.some((s) => s.bell === 'asking') || running.some((r) => r.asking);
   const card = el('article', {
     className: `card${wants ? ' wants' : ''}${machine.ok ? '' : ' cold'}${machine.url ? ' open' : ''}`,
     // Safe as written: `el` drops falsy children. `append` does not — see `put`.

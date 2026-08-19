@@ -495,3 +495,9 @@ footer a:hover { color: var(--accent); }
   color: var(--dim); border: 1px solid var(--line); border-radius: .25rem;
 }
 .chip:hover .who { color: var(--text); }
+
+/* An orchestration in the chip row. It wears a mark instead of a dot — a run and a session sit
+   side by side there and lead to different places — and the count is dimmed the same way a
+   session's window count is, so the row still scans as one row. */
+.chip.run .ico { width: 14px; height: 14px; flex: none; opacity: .8; }
+.chip.run { font-variant-numeric: tabular-nums; }
