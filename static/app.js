@@ -822,7 +822,7 @@ function whyNot(machine) {
  *  the link opens that machine's Argus, where the diagram is.
  */
 function runChip(run, url) {
-  const trouble = run.asking ? 'asking' : run.lost ? 'lost' : '';
+  const trouble = run.asking ? 'asking' : (run.lost || run.state === 'gone') ? 'lost' : '';
   const chip = el('a', {
     className: `chip run${trouble ? ` chip-${trouble === 'asking' ? 'asking' : 'lost'}` : ''}`,
     href: `${url}/#/wall`,
@@ -830,7 +830,10 @@ function runChip(run, url) {
     rel: 'noopener noreferrer',
     title: run.asking ? t('an agent in it is waiting for you')
       : run.state === 'done' ? t('finished')
-        : t('{done} of {all} finished', { done: run.done, all: run.agents }),
+        // The script watching them stopped calling in. Its agents are probably still working,
+        // which is why the machine does not go red over it.
+        : run.state === 'gone' ? t('lost touch with this one')
+          : t('{done} of {all} finished', { done: run.done, all: run.agents }),
   });
   // The mark, not the dot every session wears: these sit in the same row and go to different
   // places, and `referee 2/5` beside `codex` reads as a session with an odd label otherwise.
