@@ -15,6 +15,8 @@ through, an agent on `brick` stops and asks: nobody was watching `brick`, and it
 top on its own. Clicking a session name opens that terminal, on that machine. Every machine
 in it is invented by `scripts/demo.py`.*
 
+[![tests](https://github.com/andreaderuvo/panoptes/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/panoptes/actions/workflows/tests.yml)
+[![install](https://github.com/andreaderuvo/panoptes/actions/workflows/install.yml/badge.svg)](https://github.com/andreaderuvo/panoptes/actions/workflows/install.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 [![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](https://github.com/andreaderuvo/panoptes/wiki/Getting-started)
