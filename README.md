@@ -93,6 +93,7 @@ single machine; add this board when multiple Argus tabs stop scaling.
 
 - [Documentation](https://github.com/andreaderuvo/panoptes/wiki)
 - [Changelog](CHANGELOG.md)
+- [0.2 adoption roadmap](https://github.com/andreaderuvo/panoptes/milestone/1)
 - [OpenAPI reference](https://andreaderuvo.github.io/panoptes/api.html)
 - [Report a bug](https://github.com/andreaderuvo/panoptes/issues/new?template=bug_report.yml)
 - [Contribute](CONTRIBUTING.md)
