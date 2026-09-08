@@ -1,0 +1,31 @@
+name: Bug report
+description: A machine, board state or workflow behaved unexpectedly
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Panoptes version
+      description: Output of `panoptes --version`, or the commit hash.
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: Include what you expected and reproduction steps. Remove tokens and private hostnames.
+    validations:
+      required: true
+  - type: textarea
+    id: topology
+    attributes:
+      label: Network topology
+      description: Pull polling, machine announcements, Docker, Tailscale, reverse proxy, or other relevant details.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed board, registration and machine watcher tokens.
+          required: true

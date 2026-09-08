@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panoptes — one page for every machine you run agents on</title>
-<meta name="description" content="One tile per machine: which are up, what is running on each, and which one is waiting for you. A board over your Argus instances. Self-hosted, MIT, no build step.">
+<title>Argus Fleet — which machine running AI agents needs you?</title>
+<meta name="description" content="The optional fleet board for Argus: every machine running your AI agents on one page, ordered by what is working, unhealthy or waiting for you.">
 <link rel="icon" href="img/mark-192.png">
 <link rel="canonical" href="https://andreaderuvo.github.io/panoptes/">
 
@@ -14,9 +14,11 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="andreaderuvo.github.io">
 <meta property="og:locale" content="en_GB">
-<meta property="og:title" content="Panoptes — which machine needs me?">
-<meta property="og:description" content="One page over every machine you run agents on: which are up, what is running on each, and which one is waiting for you.">
-<meta property="og:image" content="https://andreaderuvo.github.io/panoptes/img/board.png">
+<meta property="og:title" content="Argus Fleet — which machine needs you?">
+<meta property="og:description" content="Every Argus machine running your AI agents on one page, ordered by what is working, unhealthy or waiting for you.">
+<meta property="og:image" content="https://andreaderuvo.github.io/panoptes/img/social-preview.png">
+<meta property="og:image:width" content="1774">
+<meta property="og:image:height" content="887">
 <meta property="og:url" content="https://andreaderuvo.github.io/panoptes/">
 <meta property="og:image:alt" content="The Panoptes board: one tile per machine, showing which are up and which one is waiting for you.">
 <meta name="twitter:card" content="summary_large_image">
@@ -25,7 +27,7 @@
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "Panoptes",
+  "name": "Argus Fleet",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux, macOS",
   "description": "One page for every machine you run agents on: which are up, what is running on each, and which one is waiting for you. A board over your Argus instances.",
@@ -34,7 +36,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Andrea de Ruvo" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-  "screenshot": "https://andreaderuvo.github.io/panoptes/img/board.png"
+  "screenshot": "https://andreaderuvo.github.io/panoptes/img/social-preview.png"
 }
 </script>
 
@@ -186,7 +188,7 @@
 <div class="wrap">
   <header>
     <img class="mark" src="img/mark.png" alt="">
-    <h1>Panoptes</h1>
+    <h1>Argus Fleet</h1>
     <p class="tagline">Which machine needs me?</p>
     <p class="sub">One tile per machine: which are up, what is running on each, and
       <strong>which one is waiting for you</strong> — sorted to the top, in the only colour
@@ -199,7 +201,8 @@
       <a class="btn ghost" href="https://andreaderuvo.github.io/argus/">Argus</a>
     </div>
 
-    <code class="oneliner">curl -fsSL https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh | bash
+    <code class="oneliner">curl -fsSLO https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh
+less install.sh &amp;&amp; bash install.sh
 panoptes   <span class="said"># prints a URL with a token in it</span></code>
     <p class="badges">MIT · Python + vanilla JS · no build step · no database · self-hosted</p>
 
@@ -360,7 +363,8 @@ watchers:
 
   <section id="start">
     <h2>Run it in a minute</h2>
-<pre>curl -fsSL https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh | bash
+<pre>curl -fsSLO https://raw.githubusercontent.com/andreaderuvo/panoptes/master/install.sh
+less install.sh &amp;&amp; bash install.sh
 panoptes                       # prints a URL with a token in it
 panoptes --qr                  # and a code to photograph</pre>
     <p>No <code>sudo</code>, nothing outside your home, and the same line again updates it. Or a
@@ -373,7 +377,7 @@ docker compose up -d</pre>
       three are checked on every change, on Linux and macOS.</p>
     <p>That is the board. Then tell it about your machines, or tell your machines about it —
       both directions work, and which one you want depends on your network. The
-      <a href="https://github.com/andreaderuvo/panoptes#how-a-machine-gets-onto-the-board">README</a>
+      <a href="https://github.com/andreaderuvo/panoptes/wiki/Machines-on-the-board">machine guide</a>
       has both, with the exact configuration on each side.</p>
   </section>
 

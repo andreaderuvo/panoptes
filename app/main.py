@@ -30,8 +30,9 @@ from . import journal, languages, remembered
 from .config import Config, ConfigError, DEFAULT_LISTEN, default_path
 from .watch import Seen, round_of
 
-VERSION = "0.0.1"
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+VERSION = "0.1.0"
+_HERE = Path(__file__).resolve().parent
+STATIC_DIR = _HERE / "static" if (_HERE / "static").is_dir() else _HERE.parent / "static"
 BUILTIN_LANG = STATIC_DIR / "lang"
 PROTECTED = ("/api",)
 
