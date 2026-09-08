@@ -3,6 +3,8 @@
 Panoptes is the fleet view for Argus. Bug reports, support for unusual network topologies and
 small improvements to glanceability are welcome.
 
+Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ```bash
 git clone https://github.com/andreaderuvo/panoptes.git
 cd panoptes
