@@ -22,7 +22,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # XDG_CONFIG_HOME as well as HOME, and this is the CI being wrong rather than the app:
       # preferring XDG_CONFIG_HOME is correct, and the ubuntu runners set it — so a test that
@@ -75,7 +75,7 @@ jobs:
   image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -t panoptes:ci .
       - name: it comes up, and a machine can announce itself to it
         run: |
