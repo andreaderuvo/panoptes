@@ -1,0 +1,15 @@
+name: Feature request
+description: A fleet workflow Panoptes could make simpler
+title: "[Idea]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What fleet problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What would a good result look like?

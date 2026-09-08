@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/andreaderuvo/panoptes/security/advisories/new
+    about: Report security problems privately.
+  - name: Argus workspace
+    url: https://github.com/andreaderuvo/argus/issues
+    about: Terminal, file, agent hook and single-machine problems belong in Argus.
