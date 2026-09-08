@@ -62,7 +62,9 @@ python -m app.main
 The first run creates `~/.config/panoptes/config.yaml`, prints a tokenized URL and shows a
 demo board until a machine is configured. Add `--qr` to open it on a phone. Docker Compose is
 also included; unlike Argus, the fleet board fits naturally in a container because it never
-touches host tmux or files.
+touches host tmux or files. Versioned `amd64`/`arm64` images are public at
+[`ghcr.io/andreaderuvo/panoptes`](https://github.com/andreaderuvo/panoptes/pkgs/container/panoptes);
+the Compose file shows how to switch from a local build to the released image.
 
 Connect machines by polling them from the board, or let machines announce themselves when
 the network only opens in that direction. The

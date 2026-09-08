@@ -373,6 +373,9 @@ panoptes --qr                  # and a code to photograph</pre>
       works anywhere Docker does, Windows included:</p>
 <pre>git clone https://github.com/andreaderuvo/panoptes &amp;&amp; cd panoptes
 docker compose up -d</pre>
+    <p>Versioned <code>amd64</code>/<code>arm64</code> images are also published at
+      <a href="https://github.com/andreaderuvo/panoptes/pkgs/container/panoptes"><code>ghcr.io/andreaderuvo/panoptes</code></a>;
+      the Compose file documents the one-line switch from a local build.</p>
     <p>Or <code>git clone</code> and <code>pip install -r requirements.txt</code>, as before. All
       three are checked on every change, on Linux and macOS.</p>
     <p>That is the board. Then tell it about your machines, or tell your machines about it —
